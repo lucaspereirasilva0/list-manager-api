@@ -7,6 +7,7 @@ import (
 
 var (
 	ErrItemNotFound = errors.New("item not found")
+	ErrNotFound     = ErrItemNotFound
 )
 
 func NewRepositoryError(cause error) error {

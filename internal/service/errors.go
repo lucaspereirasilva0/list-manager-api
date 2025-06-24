@@ -22,6 +22,7 @@ func NewErrorService(cause error, message string, http int) error {
 	return ErrorService{
 		Cause:   cause,
 		Message: message,
+		HTTP:    http,
 	}
 }
 

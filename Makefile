@@ -17,8 +17,7 @@ all: fmt lint test build ## Run lint, tests and build
 
 build: ## Build the project
 	@echo "Building..."
-	@mkdir -p $(BUILD_DIR)
-	$(GOCMD) build -o $(BUILD_DIR)/$(APP_NAME) $(MAIN_PATH)
+	$(GOCMD) build -o /dev/null $(MAIN_PATH)
 
 run: ## Run the project
 	@echo "Running..."

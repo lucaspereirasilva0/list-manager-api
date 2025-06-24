@@ -1,19 +1,25 @@
 package main
 
 import (
+	"context"
+	"fmt"
 	"log"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/lucaspereirasilva0/list-manager-api/cmd/api/handlers"
 	"github.com/lucaspereirasilva0/list-manager-api/cmd/api/server"
-	"github.com/lucaspereirasilva0/list-manager-api/internal/repository/local"
+	dbmongo "github.com/lucaspereirasilva0/list-manager-api/internal/database/mongodb"
+	repositorymongo "github.com/lucaspereirasilva0/list-manager-api/internal/repository/mongodb"
 	"github.com/lucaspereirasilva0/list-manager-api/internal/service"
 	"go.uber.org/zap"
 )
 
 var (
 	defaultPort = 8081
+	mongoURI    = "mongodb://localhost:27017"
+	mongoDBName = "listmanager"
 )
 
 func main() {
@@ -35,8 +41,32 @@ func main() {
 		}
 	}
 
+	// Get MongoDB URI from environment variable
+	if uri := os.Getenv("MONGO_URI"); uri != "" {
+		mongoURI = uri
+	}
+	// Get MongoDB DB Name from environment variable
+	if dbName := os.Getenv("MONGO_DB_NAME"); dbName != "" {
+		mongoDBName = dbName
+	}
+
+	// Create context for MongoDB connection
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	// Create MongoDB client
+	mongoClient, err := createMongoClient(ctx, mongoURI, mongoDBName, logger)
+	if err != nil {
+		logger.Fatal("Failed to create MongoDB client", zap.Error(err))
+	}
+	defer func() {
+		if err := mongoClient.Disconnect(context.Background()); err != nil {
+			logger.Error("Failed to disconnect MongoDB client", zap.Error(err))
+		}
+	}()
+
 	//Create repository
-	repository := local.NewLocalRepository()
+	repository := repositorymongo.NewMongoDBItemRepository(mongoClient)
 
 	//Create item service
 	itemService := service.NewItemService(repository)
@@ -52,4 +82,14 @@ func main() {
 	logger.Info("service started successfully",
 		zap.Int("port", defaultPort),
 	)
+}
+
+func createMongoClient(ctx context.Context, mongoURI, mongoDBName string, logger *zap.Logger) (*dbmongo.ClientWrapper, error) {
+	// Create MongoDB client
+	mongoClient, err := dbmongo.NewClient(ctx, mongoURI, mongoDBName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to MongoDB: %w", err)
+	}
+
+	return mongoClient, nil
 }
