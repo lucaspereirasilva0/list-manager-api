@@ -25,6 +25,17 @@ services:
       - MongoDB_DATABASE=listmanager
     networks:
       - mongo-compose-network
+  api:
+    build: .
+    ports:
+      - "8085:8085"
+    environment:
+      MONGO_URI: mongodb://db:27017
+      MONGO_DB_NAME: listmanager
+    depends_on:
+      - db
+    networks:
+      - mongo-compose-network
 
 volumes:
   mongodb_data:
