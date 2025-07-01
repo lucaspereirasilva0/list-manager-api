@@ -38,7 +38,7 @@ func NewInternalServerError(err error) ErrorAPI {
 	}
 }
 
-func handleError(w http.ResponseWriter, err error) ErrorAPI {
+func HandleError(w http.ResponseWriter, err error) ErrorAPI {
 	var (
 		errService service.ErrorService
 		errAPI     ErrorAPI

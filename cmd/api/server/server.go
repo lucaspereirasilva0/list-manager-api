@@ -11,6 +11,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/lucaspereirasilva0/list-manager-api/cmd/api/handlers"
+	"github.com/lucaspereirasilva0/list-manager-api/cmd/api/handlers/middleware"
 	"go.uber.org/zap"
 )
 
@@ -39,20 +40,20 @@ func (s *Server) setupRoutes() {
 	router := mux.NewRouter()
 
 	// Routes for item operations
-	router.Handle("/item", handlers.ErrorHandlingMiddleware(s.handler.CreateItem)).Methods("POST")
-	router.Handle("/item", handlers.ErrorHandlingMiddleware(s.handler.GetItem)).Methods("GET")
-	router.Handle("/item", handlers.ErrorHandlingMiddleware(s.handler.UpdateItem)).Methods("PUT")
-	router.Handle("/item", handlers.ErrorHandlingMiddleware(s.handler.DeleteItem)).Methods("DELETE")
-	router.Handle("/items", handlers.ErrorHandlingMiddleware(s.handler.ListItems)).Methods("GET")
+	router.Handle("/item", middleware.ErrorHandlingMiddleware(s.handler.CreateItem)).Methods("POST")
+	router.Handle("/item", middleware.ErrorHandlingMiddleware(s.handler.GetItem)).Methods("GET")
+	router.Handle("/item", middleware.ErrorHandlingMiddleware(s.handler.UpdateItem)).Methods("PUT")
+	router.Handle("/item", middleware.ErrorHandlingMiddleware(s.handler.DeleteItem)).Methods("DELETE")
+	router.Handle("/items", middleware.ErrorHandlingMiddleware(s.handler.ListItems)).Methods("GET")
 
 	// Route for application version (for PWA auto-update)
 	router.HandleFunc("/_app/version.json", handlers.GetVersion).Methods("GET")
 
 	// Middleware for logging
-	loggingMiddleware := handlers.LoggingMiddleware(s.logger)
+	loggingMiddleware := middleware.LoggingMiddleware(s.logger)
 
 	// Middleware for CORS (allow all origins for now; adjust as needed)
-	corsMiddleware := handlers.CORSMiddleware([]string{"*"})
+	corsMiddleware := middleware.CORSMiddleware([]string{"*"})
 
 	// Apply middlewares: CORS first, then logging, then router
 	s.server.Handler = corsMiddleware(loggingMiddleware(router))

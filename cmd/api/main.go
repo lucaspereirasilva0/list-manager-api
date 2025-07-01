@@ -18,8 +18,8 @@ import (
 
 var (
 	defaultPort = 8085
-	mongoURI    = "mongodb://localhost:27017"
-	mongoDBName = "listmanager"
+	mongoURI    = ""
+	mongoDBName = ""
 )
 
 func main() {

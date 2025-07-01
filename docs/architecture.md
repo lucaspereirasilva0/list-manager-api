@@ -71,7 +71,7 @@ O projeto está organizado nos seguintes diretórios e pacotes, cada um com uma 
       - `interfaces.go`: Interfaces para as operações do cliente MongoDB.
       - `wrappers.go`: Funções de "wrapper" para operações de baixo nível do MongoDB.
   - **`internal/domain/`**: Define as entidades do domínio e as regras de negócio puras.
-    - `item.go`: Definição das estruturas de dados `Product` e `User`.
+    - `item.go`: Definição das estruturas de dados `Product` e `User`. Inclui a função `generateID()` para criar IDs compatíveis com `ObjectID` do MongoDB, e métodos de lógica de negócio como `IsEmpty()` e `IsActive()`.
     - `item_test.go`: Testes unitários para as entidades de domínio.
   - **`internal/repository/`**: Camada de abstração para persistência de dados.
     - `errors.go`: Erros específicos da camada de repositório.
@@ -81,7 +81,7 @@ O projeto está organizado nos seguintes diretórios e pacotes, cada um com uma 
     - **`internal/repository/local/`**: Implementação de repositório em memória para desenvolvimento/testes rápidos.
       - `service.go`: Serviço do repositório local.
     - **`internal/repository/mongodb/`**: Implementação concreta das interfaces de repositório para MongoDB.
-      - `repository.go`: Lógica para persistência de `Product` e `User` no MongoDB.
+      - `repository.go`: Lógica para persistência de `Product` e `User` no MongoDB. Inclui a implementação de transações MongoDB para operações multi-documento/coleção, como `CreateItemWithUser`, garantindo a atomicidade.
       - `repository_test.go`: Testes unitários para o repositório MongoDB.
   - **`internal/service/`**: Contém a lógica de negócio principal (casos de uso).
     - `errors.go`: Erros específicos da camada de serviço.
@@ -100,7 +100,7 @@ O projeto está organizado nos seguintes diretórios e pacotes, cada um com uma 
 
 ## 5. Persistência de Dados
 
-O MongoDB é o banco de dados principal, configurado via `docker-compose.yml`. As entidades `Product` e `User` são persistidas com tags `bson` para mapeamento correto. As operações transacionais são implementadas quando necessárias para garantir a integridade dos dados.
+O MongoDB é o banco de dados principal, configurado via `docker-compose.yml`. As entidades `Product` e `User` são persistidas com tags `bson` para mapeamento correto. As operações transacionais são implementadas quando necessárias para garantir a integridade dos dados, como visto na função `CreateItemWithUser` no repositório MongoDB.
 
 ## 6. Estratégia de Testes
 
@@ -115,5 +115,19 @@ Um tratamento de erros robusto é garantido, com o encapsulamento e propagação
 ## 8. Injeção de Dependência
 
 A injeção de dependência é realizada através de funções construtoras, garantindo que as dependências sejam passadas de forma explícita e controlada, o que melhora a testabilidade e a modularidade do código.
+
+## 9. Observabilidade
+
+A aplicação utiliza `go.uber.org/zap` para logging estruturado, o que facilita a análise e depuração de logs em ambientes de produção. Os logs são configurados para fornecer informações detalhadas sobre o fluxo da aplicação.
+
+**Futura Integração com OpenTelemetry**: Há planos para integrar o OpenTelemetry para tracing distribuído e métricas. Esta integração permitirá uma visibilidade mais profunda do desempenho e do fluxo das requisições através dos serviços, complementando o logging existente com rastreamento de ponta a ponta e coleta de métricas padronizadas.
+
+## 10. Ordem dos Middlewares
+
+No `cmd/api/server/server.go`, os middlewares são aplicados na seguinte ordem para garantir o comportamento correto:
+
+1.  **`CORSMiddleware`**: Aplicado primeiro para manipular as requisições de pré-voo (preflight requests) do CORS antes de qualquer outra lógica de middleware ou roteamento.
+2.  **`LoggingMiddleware`**: Aplicado após o CORS para registrar as requisições que passaram pela verificação de CORS.
+3.  **Router (`mux.NewRouter()`)**: O roteador é o último a ser aplicado, garantindo que as requisições sejam logadas e que o CORS seja tratado antes de o roteamento ser realizado.
 
 ---

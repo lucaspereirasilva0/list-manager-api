@@ -2,301 +2,406 @@ package mongodb_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 
-	"github.com/stretchr/testify/suite"
+	"github.com/lucaspereirasilva0/list-manager-api/internal/repository"
+
+	dbmongo "github.com/lucaspereirasilva0/list-manager-api/internal/database/mongodb"
+	mongorepo "github.com/lucaspereirasilva0/list-manager-api/internal/repository/mongodb"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
-
-	dbmongo "github.com/lucaspereirasilva0/list-manager-api/internal/database/mongodb"
-	"github.com/lucaspereirasilva0/list-manager-api/internal/repository"
-	mongorepo "github.com/lucaspereirasilva0/list-manager-api/internal/repository/mongodb"
 )
 
-// -------------------- hand-written mocks --------------------
+var (
+	errDatabase  = errors.New("database error")
+	testObjectID = primitive.NewObjectID()
+)
 
-type mockCursor struct {
-	allFunc   func(ctx context.Context, results interface{}) error
-	closeFunc func(ctx context.Context) error
+// --- Mock Data Functions (Parameter-less) ---
+
+func mockCreateItemInput() repository.Item {
+	return repository.Item{ID: testObjectID.Hex(), Name: "Test Item", Active: true}
 }
 
-func (m *mockCursor) All(ctx context.Context, results interface{}) error {
-	return m.allFunc(ctx, results)
+func mockUpdateItemInput() repository.Item {
+	return repository.Item{ID: testObjectID.Hex(), Name: "Updated Item", Active: false}
 }
-func (m *mockCursor) Close(ctx context.Context) error {
-	if m.closeFunc != nil {
-		return m.closeFunc(ctx)
+
+func mockInvalidHexIDItemInput() repository.Item {
+	return repository.Item{ID: "invalid-hex-id", Name: "Test Item", Active: false}
+}
+
+func mockCreateItemOutput() repository.Item {
+	return repository.Item{ID: testObjectID.Hex(), Name: "Test Item", Active: true}
+}
+
+func mockFoundItemOutput() repository.Item {
+	return repository.Item{ID: testObjectID.Hex(), Name: "Found Item", Active: true}
+}
+
+func mockUpdateItemOutput() repository.Item {
+	return repository.Item{ID: testObjectID.Hex(), Name: "Updated Item", Active: false}
+}
+
+func mockItemListOutput() []repository.Item {
+	return []repository.Item{
+		{ID: primitive.NewObjectID().Hex(), Name: "First Item", Active: true},
+		{ID: primitive.NewObjectID().Hex(), Name: "Second Item", Active: false},
 	}
-	return nil
 }
 
-type mockCollection struct {
-	insertOneFunc func(ctx context.Context, document interface{}, opts ...*options.InsertOneOptions) (*mongo.InsertOneResult, error)
-	findOneFunc   func(ctx context.Context, filter interface{}, opts ...*options.FindOneOptions) *mongo.SingleResult
-	updateOneFunc func(ctx context.Context, filter interface{}, update interface{}, opts ...*options.UpdateOptions) (*mongo.UpdateResult, error)
-	deleteOneFunc func(ctx context.Context, filter interface{}, opts ...*options.DeleteOptions) (*mongo.DeleteResult, error)
-	findFunc      func(ctx context.Context, filter interface{}, opts ...*options.FindOptions) (dbmongo.MongoCursorOperations, error)
+func mockInsertOneResult() *mongo.InsertOneResult {
+	return &mongo.InsertOneResult{InsertedID: testObjectID}
 }
 
-func (m *mockCollection) InsertOne(ctx context.Context, document interface{}, opts ...*options.InsertOneOptions) (*mongo.InsertOneResult, error) {
-	return m.insertOneFunc(ctx, document, opts...)
-}
-func (m *mockCollection) FindOne(ctx context.Context, filter interface{}, opts ...*options.FindOneOptions) *mongo.SingleResult {
-	return m.findOneFunc(ctx, filter, opts...)
-}
-func (m *mockCollection) UpdateOne(ctx context.Context, filter interface{}, update interface{}, opts ...*options.UpdateOptions) (*mongo.UpdateResult, error) {
-	return m.updateOneFunc(ctx, filter, update, opts...)
-}
-func (m *mockCollection) DeleteOne(ctx context.Context, filter interface{}, opts ...*options.DeleteOptions) (*mongo.DeleteResult, error) {
-	return m.deleteOneFunc(ctx, filter, opts...)
-}
-func (m *mockCollection) Find(ctx context.Context, filter interface{}, opts ...*options.FindOptions) (dbmongo.MongoCursorOperations, error) {
-	return m.findFunc(ctx, filter, opts...)
-}
-func (m *mockCollection) DeleteMany(ctx context.Context, filter interface{}, opts ...*options.DeleteOptions) (*mongo.DeleteResult, error) {
-	return nil, nil
+func mockSuccessfulUpdateOneResult() *mongo.UpdateResult {
+	return &mongo.UpdateResult{MatchedCount: 1}
 }
 
-// mock MongoClientOperations
-type mockMongoClientOps struct {
-	err error
+func mockNotFoundUpdateOneResult() *mongo.UpdateResult {
+	return &mongo.UpdateResult{MatchedCount: 0}
 }
 
-func (mc *mockMongoClientOps) StartSession(opts ...*options.SessionOptions) (mongo.Session, error) {
-	return nil, mc.err
-}
-func (mc *mockMongoClientOps) Database(name string, opts ...*options.DatabaseOptions) dbmongo.MongoDatabaseOperations {
-	return nil
+func mockSuccessfulDeleteOneResult() *mongo.DeleteResult {
+	return &mongo.DeleteResult{DeletedCount: 1}
 }
 
-type mockClient struct {
-	itemsCol dbmongo.MongoCollectionOperations
-	usersCol dbmongo.MongoCollectionOperations
-	mcOps    dbmongo.MongoClientOperations
+func mockNotFoundDeleteOneResult() *mongo.DeleteResult {
+	return &mongo.DeleteResult{DeletedCount: 0}
 }
 
-func (c *mockClient) GetCollection(name string) dbmongo.MongoCollectionOperations {
-	switch name {
-	case mongorepo.CollectionItems:
-		return c.itemsCol
-	case mongorepo.CollectionUsers:
-		if c.usersCol != nil {
-			return c.usersCol
-		}
-	}
-	return nil
-}
-func (c *mockClient) Disconnect(ctx context.Context) error  { return nil }
-func (c *mockClient) Client() dbmongo.MongoClientOperations { return c.mcOps }
-
-// -------------------- test suite --------------------
-
-type MongoSuite struct {
-	suite.Suite
-	ctx        context.Context
-	itemsCol   *mockCollection
-	client     *mockClient
-	repository repository.ItemRepository
+func mockSuccessfulFindOneResult() *mongo.SingleResult {
+	item := mockFoundItemOutput()
+	bsonBytes, _ := bson.Marshal(item)
+	return mongo.NewSingleResultFromDocument(bsonBytes, nil, nil)
 }
 
-func (s *MongoSuite) SetupTest() {
-	s.ctx = context.Background()
-	s.itemsCol = &mockCollection{}
-	s.client = &mockClient{itemsCol: s.itemsCol}
-	s.repository = mongorepo.NewMongoDBItemRepository(s.client)
+func mockNotFoundFindOneResult() *mongo.SingleResult {
+	bsonBytes, _ := bson.Marshal(repository.Item{})
+	return mongo.NewSingleResultFromDocument(bsonBytes, mongo.ErrNoDocuments, nil)
 }
 
-// ---- Create ----
-func (s *MongoSuite) TestCreate() {
-	s.itemsCol.insertOneFunc = func(ctx context.Context, doc interface{}, opts ...*options.InsertOneOptions) (*mongo.InsertOneResult, error) {
-		return &mongo.InsertOneResult{InsertedID: primitive.NewObjectID()}, nil
-	}
-
-	item := repository.Item{ID: primitive.NewObjectID().Hex(), Name: "Item 1", Active: true}
-	created, err := s.repository.Create(s.ctx, item)
-
-	s.NoError(err)
-	s.Equal(item.Name, created.Name)
-	s.Equal(item.ID, created.ID)
+func mockDBErrorFindOneResult() *mongo.SingleResult {
+	bsonBytes, _ := bson.Marshal(repository.Item{})
+	return mongo.NewSingleResultFromDocument(bsonBytes, errDatabase, nil)
 }
 
-// ---- GetByID ----
-func (s *MongoSuite) TestGetByID() {
-	id := primitive.NewObjectID().Hex()
-	expected := repository.Item{ID: id, Name: "Found", Active: true}
+// --- Tests ---
 
-	s.itemsCol.findOneFunc = func(ctx context.Context, filter interface{}, opts ...*options.FindOneOptions) *mongo.SingleResult {
-		return mongo.NewSingleResultFromDocument(expected, nil, nil)
+func TestCreate(t *testing.T) {
+	ctx := context.Background()
+
+	tests := []struct {
+		name                     string
+		givenItem                repository.Item
+		givenMockInsertOneResult *mongo.InsertOneResult
+		givenMockInsertOneError  error
+		wantErr                  error
+		wantCreatedItem          repository.Item
+	}{
+		{
+			name:                     "Given_ValidItem_When_Create_Then_ExpectedSuccess",
+			givenItem:                mockCreateItemInput(),
+			givenMockInsertOneResult: mockInsertOneResult(),
+			wantCreatedItem:          mockCreateItemOutput(),
+		},
+		{
+			name:                    "Given_DatabaseError_When_Create_Then_ExpectedInternalError",
+			givenItem:               mockCreateItemInput(),
+			givenMockInsertOneError: errDatabase,
+			wantErr:                 errDatabase,
+		},
+		{
+			name:      "Given_ItemWithInvalidHexID_When_Create_Then_ExpectedInvalidIDError",
+			givenItem: mockInvalidHexIDItemInput(),
+			wantErr:   repository.ErrInvalidHexID,
+		},
 	}
 
-	item, err := s.repository.GetByID(s.ctx, id)
-	s.NoError(err)
-	s.Equal(expected, item)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			collectionMock := new(dbmongo.MockMongoCollectionOperations)
+			clientMock := new(dbmongo.MockClientOperations)
 
-	// not found
-	s.itemsCol.findOneFunc = func(ctx context.Context, filter interface{}, opts ...*options.FindOneOptions) *mongo.SingleResult {
-		return mongo.NewSingleResultFromDocument(bson.D{}, mongo.ErrNoDocuments, nil)
+			if tt.givenMockInsertOneResult != nil || tt.givenMockInsertOneError != nil {
+				collectionMock.On("InsertOne", ctx, mock.Anything).Return(tt.givenMockInsertOneResult, tt.givenMockInsertOneError)
+			}
+
+			clientMock.On("GetCollection", mongorepo.CollectionItems).Return(collectionMock)
+
+			repo := mongorepo.NewMongoDBItemRepository(clientMock)
+
+			createdItem, err := repo.Create(ctx, tt.givenItem)
+
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+			} else {
+				require.NoError(t, err)
+			}
+			require.Equal(t, tt.wantCreatedItem, createdItem)
+
+			collectionMock.AssertExpectations(t)
+			clientMock.AssertExpectations(t)
+		})
 	}
-	_, err = s.repository.GetByID(s.ctx, primitive.NewObjectID().Hex())
-	s.ErrorIs(err, repository.ErrNotFound)
-
-	// invalid ID
-	_, err = s.repository.GetByID(s.ctx, "bad-id")
-	s.Error(err)
 }
 
-// ---- Update ----
-func (s *MongoSuite) TestUpdate() {
-	id := primitive.NewObjectID().Hex()
-	item := repository.Item{ID: id, Name: "Upd", Active: false}
+func TestGetByID(t *testing.T) {
+	ctx := context.Background()
 
-	s.itemsCol.updateOneFunc = func(ctx context.Context, filter interface{}, update interface{}, opts ...*options.UpdateOptions) (*mongo.UpdateResult, error) {
-		return &mongo.UpdateResult{MatchedCount: 1, ModifiedCount: 1}, nil
+	tests := []struct {
+		name                   string
+		givenID                string
+		givenMockFindOneResult *mongo.SingleResult
+		wantErr                error
+		wantItem               repository.Item
+	}{
+		{
+			name:                   "Given_ValidID_When_GetByID_Then_ExpectedSuccess",
+			givenID:                testObjectID.Hex(),
+			givenMockFindOneResult: mockSuccessfulFindOneResult(),
+			wantItem:               mockFoundItemOutput(),
+		},
+		{
+			name:                   "Given_ValidID_When_GetByID_And_ItemNotFound_Then_ExpectedNotFoundError",
+			givenID:                testObjectID.Hex(),
+			givenMockFindOneResult: mockNotFoundFindOneResult(),
+			wantErr:                repository.ErrNotFound,
+		},
+		{
+			name:                   "Given_ValidID_When_GetByID_And_DatabaseError_Then_ExpectedInternalError",
+			givenID:                testObjectID.Hex(),
+			givenMockFindOneResult: mockDBErrorFindOneResult(),
+			wantErr:                errDatabase,
+		},
+		{
+			name:    "Given_InvalidID_When_GetByID_Then_ExpectedInvalidIDError",
+			givenID: "invalid-id",
+			wantErr: repository.ErrInvalidHexID,
+		},
 	}
-	updated, err := s.repository.Update(s.ctx, item)
-	s.NoError(err)
-	s.Equal(item, updated)
 
-	// not found scenario
-	s.itemsCol.updateOneFunc = func(ctx context.Context, filter interface{}, update interface{}, opts ...*options.UpdateOptions) (*mongo.UpdateResult, error) {
-		return &mongo.UpdateResult{MatchedCount: 0, ModifiedCount: 0}, nil
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			collectionMock := new(dbmongo.MockMongoCollectionOperations)
+			clientMock := new(dbmongo.MockClientOperations)
+
+			if tt.givenMockFindOneResult != nil {
+				collectionMock.On("FindOne", ctx, mock.Anything).Return(tt.givenMockFindOneResult)
+			}
+
+			clientMock.On("GetCollection", mongorepo.CollectionItems).Return(collectionMock)
+
+			repo := mongorepo.NewMongoDBItemRepository(clientMock)
+
+			item, err := repo.GetByID(ctx, tt.givenID)
+
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+			} else {
+				require.NoError(t, err)
+			}
+			require.Equal(t, tt.wantItem, item)
+
+			collectionMock.AssertExpectations(t)
+			clientMock.AssertExpectations(t)
+		})
 	}
-	_, err = s.repository.Update(s.ctx, item)
-	s.ErrorIs(err, repository.ErrNotFound)
-
-	// invalid ID
-	badItem := repository.Item{ID: "bad-id", Name: "x", Active: true}
-	_, err = s.repository.Update(s.ctx, badItem)
-	s.Error(err)
 }
 
-// ---- Delete ----
-func (s *MongoSuite) TestDelete() {
-	id := primitive.NewObjectID().Hex()
+func TestUpdate(t *testing.T) {
+	ctx := context.Background()
 
-	s.itemsCol.deleteOneFunc = func(ctx context.Context, filter interface{}, opts ...*options.DeleteOptions) (*mongo.DeleteResult, error) {
-		return &mongo.DeleteResult{DeletedCount: 1}, nil
+	tests := []struct {
+		name                     string
+		givenItem                repository.Item
+		givenMockUpdateOneResult *mongo.UpdateResult
+		givenMockUpdateOneError  error
+		wantErr                  error
+		wantUpdatedItem          repository.Item
+	}{
+		{
+			name:                     "Given_ValidItem_When_Update_Then_ExpectedSuccess",
+			givenItem:                mockUpdateItemInput(),
+			givenMockUpdateOneResult: mockSuccessfulUpdateOneResult(),
+			wantUpdatedItem:          mockUpdateItemOutput(),
+		},
+		{
+			name:                     "Given_ValidItem_When_Update_And_ItemNotFound_Then_ExpectedNotFoundError",
+			givenItem:                mockUpdateItemInput(),
+			givenMockUpdateOneResult: mockNotFoundUpdateOneResult(),
+			wantErr:                  repository.ErrNotFound,
+		},
+		{
+			name:                    "Given_ValidItem_When_Update_And_DatabaseError_Then_ExpectedInternalError",
+			givenItem:               mockUpdateItemInput(),
+			givenMockUpdateOneError: errDatabase,
+			wantErr:                 errDatabase,
+		},
+		{
+			name:      "Given_InvalidID_When_Update_Then_ExpectedInvalidIDError",
+			givenItem: mockInvalidHexIDItemInput(),
+			wantErr:   repository.ErrInvalidHexID,
+		},
 	}
-	err := s.repository.Delete(s.ctx, id)
-	s.NoError(err)
 
-	// not found
-	s.itemsCol.deleteOneFunc = func(ctx context.Context, filter interface{}, opts ...*options.DeleteOptions) (*mongo.DeleteResult, error) {
-		return &mongo.DeleteResult{DeletedCount: 0}, nil
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			collectionMock := new(dbmongo.MockMongoCollectionOperations)
+			clientMock := new(dbmongo.MockClientOperations)
+
+			if tt.givenMockUpdateOneResult != nil || tt.givenMockUpdateOneError != nil {
+				collectionMock.On("UpdateOne", ctx, mock.Anything, mock.Anything).Return(tt.givenMockUpdateOneResult, tt.givenMockUpdateOneError)
+			}
+
+			clientMock.On("GetCollection", mongorepo.CollectionItems).Return(collectionMock)
+
+			repo := mongorepo.NewMongoDBItemRepository(clientMock)
+
+			updatedItem, err := repo.Update(ctx, tt.givenItem)
+
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+			} else {
+				require.NoError(t, err)
+			}
+			require.Equal(t, tt.wantUpdatedItem, updatedItem)
+
+			collectionMock.AssertExpectations(t)
+			clientMock.AssertExpectations(t)
+		})
 	}
-	err = s.repository.Delete(s.ctx, primitive.NewObjectID().Hex())
-	s.ErrorIs(err, repository.ErrNotFound)
-
-	// invalid ID
-	err = s.repository.Delete(s.ctx, "bad-id")
-	s.Error(err)
 }
 
-// ---- List ----
-func (s *MongoSuite) TestList() {
-	items := []repository.Item{
-		{ID: primitive.NewObjectID().Hex(), Name: "A", Active: true},
-		{ID: primitive.NewObjectID().Hex(), Name: "B", Active: false},
+func TestDelete(t *testing.T) {
+	ctx := context.Background()
+
+	tests := []struct {
+		name                     string
+		givenID                  string
+		givenMockDeleteOneResult *mongo.DeleteResult
+		givenMockDeleteOneError  error
+		wantErr                  error
+	}{
+		{
+			name:                     "Given_ValidID_When_Delete_Then_ExpectedSuccess",
+			givenID:                  testObjectID.Hex(),
+			givenMockDeleteOneResult: mockSuccessfulDeleteOneResult(),
+		},
+		{
+			name:                     "Given_ValidID_When_Delete_And_ItemNotFound_Then_ExpectedNotFoundError",
+			givenID:                  testObjectID.Hex(),
+			givenMockDeleteOneResult: mockNotFoundDeleteOneResult(),
+			wantErr:                  repository.ErrNotFound,
+		},
+		{
+			name:                    "Given_ValidID_When_Delete_And_DatabaseError_Then_ExpectedInternalError",
+			givenID:                 testObjectID.Hex(),
+			givenMockDeleteOneError: errDatabase,
+			wantErr:                 errDatabase,
+		},
+		{
+			name:    "Given_InvalidID_When_Delete_Then_ExpectedInvalidIDError",
+			givenID: "invalid-id",
+			wantErr: repository.ErrInvalidHexID,
+		},
 	}
 
-	cursor := &mockCursor{}
-	cursor.allFunc = func(ctx context.Context, results interface{}) error {
-		dest := results.(*[]repository.Item)
-		*dest = items
-		return nil
-	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			collectionMock := new(dbmongo.MockMongoCollectionOperations)
+			clientMock := new(dbmongo.MockClientOperations)
 
-	s.itemsCol.findFunc = func(ctx context.Context, filter interface{}, opts ...*options.FindOptions) (dbmongo.MongoCursorOperations, error) {
-		return cursor, nil
-	}
+			if tt.givenMockDeleteOneResult != nil || tt.givenMockDeleteOneError != nil {
+				collectionMock.On("DeleteOne", ctx, mock.Anything).Return(tt.givenMockDeleteOneResult, tt.givenMockDeleteOneError)
+			}
 
-	got, err := s.repository.List(s.ctx)
-	s.NoError(err)
-	s.Equal(items, got)
+			clientMock.On("GetCollection", mongorepo.CollectionItems).Return(collectionMock)
+
+			repo := mongorepo.NewMongoDBItemRepository(clientMock)
+
+			err := repo.Delete(ctx, tt.givenID)
+
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+			} else {
+				require.NoError(t, err)
+			}
+
+			collectionMock.AssertExpectations(t)
+			clientMock.AssertExpectations(t)
+		})
+	}
 }
 
-// ---- Additional Error Path Tests ----
+func TestList(t *testing.T) {
+	ctx := context.Background()
 
-func (s *MongoSuite) TestCreate_ErrorInsert() {
-	expectErr := mongo.CommandError{Message: "insert failed"}
-	s.itemsCol.insertOneFunc = func(ctx context.Context, doc interface{}, opts ...*options.InsertOneOptions) (*mongo.InsertOneResult, error) {
-		return nil, expectErr
+	tests := []struct {
+		name           string
+		givenFindError error
+		givenAllError  error
+		wantItems      []repository.Item
+		wantErr        error
+	}{
+		{
+			name:      "Given_ItemsExist_When_List_Then_ExpectedSuccess",
+			wantItems: mockItemListOutput(),
+		},
+		{
+			name:      "Given_NoItemsExist_When_List_Then_ExpectedEmptyList",
+			wantItems: []repository.Item{},
+		},
+		{
+			name:           "Given_FindError_When_List_Then_ExpectedInternalError",
+			givenFindError: errDatabase,
+			wantErr:        errDatabase,
+		},
+		{
+			name:          "Given_CursorAllError_When_List_Then_ExpectedInternalError",
+			givenAllError: errDatabase,
+			wantErr:       errDatabase,
+		},
 	}
-	_, err := s.repository.Create(s.ctx, repository.Item{ID: primitive.NewObjectID().Hex(), Name: "X", Active: true})
-	s.Error(err)
-	s.Contains(err.Error(), "insert failed")
-}
 
-func (s *MongoSuite) TestGetByID_DatabaseError() {
-	dbErr := mongo.CommandError{Message: "db down"}
-	s.itemsCol.findOneFunc = func(ctx context.Context, filter interface{}, opts ...*options.FindOneOptions) *mongo.SingleResult {
-		return mongo.NewSingleResultFromDocument(bson.D{}, dbErr, nil)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			collectionMock := new(dbmongo.MockMongoCollectionOperations)
+			cursorMock := new(dbmongo.MockMongoCursorOperations)
+			clientMock := new(dbmongo.MockClientOperations)
+
+			if tt.givenFindError != nil {
+				collectionMock.On("Find", ctx, mock.Anything).Return((*dbmongo.MockMongoCursorOperations)(nil), tt.givenFindError)
+			} else {
+				collectionMock.On("Find", ctx, mock.Anything).Return(cursorMock, nil)
+				cursorMock.On("All", ctx, mock.Anything).Return(tt.givenAllError).Run(func(args mock.Arguments) {
+					if tt.givenAllError == nil {
+						results := args.Get(1).(*[]repository.Item)
+						*results = tt.wantItems
+					}
+				})
+				cursorMock.On("Close", ctx).Return(nil)
+			}
+
+			clientMock.On("GetCollection", mongorepo.CollectionItems).Return(collectionMock)
+
+			repo := mongorepo.NewMongoDBItemRepository(clientMock)
+
+			items, err := repo.List(ctx)
+
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+			} else {
+				require.NoError(t, err)
+			}
+			require.Equal(t, tt.wantItems, items)
+
+			collectionMock.AssertExpectations(t)
+			cursorMock.AssertExpectations(t)
+		})
 	}
-	_, err := s.repository.GetByID(s.ctx, primitive.NewObjectID().Hex())
-	s.Error(err)
-	s.Contains(err.Error(), "db down")
-}
-
-func (s *MongoSuite) TestUpdate_DBError() {
-	id := primitive.NewObjectID().Hex()
-	dbErr := mongo.CommandError{Message: "update failed"}
-	s.itemsCol.updateOneFunc = func(ctx context.Context, filter interface{}, update interface{}, opts ...*options.UpdateOptions) (*mongo.UpdateResult, error) {
-		return nil, dbErr
-	}
-	_, err := s.repository.Update(s.ctx, repository.Item{ID: id, Name: "Y", Active: true})
-	s.Error(err)
-	s.Contains(err.Error(), "update failed")
-}
-
-func (s *MongoSuite) TestDelete_DBError() {
-	id := primitive.NewObjectID().Hex()
-	dbErr := mongo.CommandError{Message: "delete failed"}
-	s.itemsCol.deleteOneFunc = func(ctx context.Context, filter interface{}, opts ...*options.DeleteOptions) (*mongo.DeleteResult, error) {
-		return nil, dbErr
-	}
-	err := s.repository.Delete(s.ctx, id)
-	s.Error(err)
-	s.Contains(err.Error(), "delete failed")
-}
-
-func (s *MongoSuite) TestList_FindError() {
-	dbErr := mongo.CommandError{Message: "find failed"}
-	s.itemsCol.findFunc = func(ctx context.Context, filter interface{}, opts ...*options.FindOptions) (dbmongo.MongoCursorOperations, error) {
-		return nil, dbErr
-	}
-	_, err := s.repository.List(s.ctx)
-	s.Error(err)
-	s.Contains(err.Error(), "find failed")
-}
-
-func (s *MongoSuite) TestList_DecodeError() {
-	cursor := &mockCursor{}
-	cursor.allFunc = func(ctx context.Context, results interface{}) error {
-		return mongo.CommandError{Message: "decode error"}
-	}
-	s.itemsCol.findFunc = func(ctx context.Context, filter interface{}, opts ...*options.FindOptions) (dbmongo.MongoCursorOperations, error) {
-		return cursor, nil
-	}
-	_, err := s.repository.List(s.ctx)
-	s.Error(err)
-	s.Contains(err.Error(), "decode error")
-}
-
-// ---- CreateItemWithUser (error path) ----
-
-func (s *MongoSuite) TestCreateItemWithUser_StartSessionError() {
-	startErr := mongo.CommandError{Message: "cannot start session"}
-	s.client.mcOps = &mockMongoClientOps{err: startErr}
-
-	_, _, err := s.repository.(*mongorepo.MongoDBItemRepository).CreateItemWithUser(s.ctx, repository.Item{Name: "X"}, repository.User{})
-	s.Error(err)
-	s.Contains(err.Error(), "cannot start session")
-}
-
-// -------------------- run suite --------------------
-
-func TestMongoDBSuite(t *testing.T) {
-	suite.Run(t, new(MongoSuite))
 }

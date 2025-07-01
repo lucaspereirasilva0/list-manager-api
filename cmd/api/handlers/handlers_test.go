@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/lucaspereirasilva0/list-manager-api/cmd/api/handlers"
+	"github.com/lucaspereirasilva0/list-manager-api/cmd/api/handlers/middleware"
 	"github.com/lucaspereirasilva0/list-manager-api/internal/domain"
 	"github.com/lucaspereirasilva0/list-manager-api/internal/service"
 	"github.com/stretchr/testify/mock"
@@ -61,7 +62,7 @@ func TestCreateItem(t *testing.T) {
 			h := handlers.NewHandler(serviceMock)
 
 			// Create handler with middleware to simulate an HTTP request
-			handlerWithMiddleware := handlers.ErrorHandlingMiddleware(h.CreateItem)
+			handlerWithMiddleware := middleware.ErrorHandlingMiddleware(h.CreateItem)
 
 			// Create request
 			body, err := json.Marshal(tt.givenRequestBody)
@@ -130,7 +131,7 @@ func TestGetItem(t *testing.T) {
 			h := handlers.NewHandler(serviceMock)
 
 			// Create handler with middleware to simulate an HTTP request
-			handlerWithMiddleware := handlers.ErrorHandlingMiddleware(h.GetItem)
+			handlerWithMiddleware := middleware.ErrorHandlingMiddleware(h.GetItem)
 
 			// Create request
 			req := httptest.NewRequest(http.MethodGet, "/item?id="+tt.givenItemID, nil)
@@ -196,7 +197,7 @@ func TestUpdateItem(t *testing.T) {
 			h := handlers.NewHandler(serviceMock)
 
 			// Create handler with middleware to simulate an HTTP request
-			handlerWithMiddleware := handlers.ErrorHandlingMiddleware(h.UpdateItem)
+			handlerWithMiddleware := middleware.ErrorHandlingMiddleware(h.UpdateItem)
 
 			// Create request
 			body, err := json.Marshal(tt.givenRequestBody)
@@ -259,7 +260,7 @@ func TestDeleteItem(t *testing.T) {
 			h := handlers.NewHandler(serviceMock)
 
 			// Create handler with middleware to simulate an HTTP request
-			handlerWithMiddleware := handlers.ErrorHandlingMiddleware(h.DeleteItem)
+			handlerWithMiddleware := middleware.ErrorHandlingMiddleware(h.DeleteItem)
 
 			// Create request
 			req := httptest.NewRequest(http.MethodDelete, "/items?id="+tt.givenItemID, nil)
@@ -319,7 +320,7 @@ func TestListItems(t *testing.T) {
 			h := handlers.NewHandler(serviceMock)
 
 			// Create handler with middleware to simulate an HTTP request
-			handlerWithMiddleware := handlers.ErrorHandlingMiddleware(h.ListItems)
+			handlerWithMiddleware := middleware.ErrorHandlingMiddleware(h.ListItems)
 
 			// Create request
 			req := httptest.NewRequest(http.MethodGet, "/items", nil)

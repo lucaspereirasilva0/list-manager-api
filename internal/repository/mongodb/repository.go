@@ -37,7 +37,7 @@ func (r *MongoDBItemRepository) Create(ctx context.Context, item repository.Item
 	// Converte o ID fornecido (agora um hexadecimal de 24 caracteres) para um ObjectID
 	objectID, err := primitive.ObjectIDFromHex(item.ID)
 	if err != nil {
-		return repository.Item{}, fmt.Errorf("provided item ID is not a valid ObjectID: %w", err)
+		return repository.Item{}, repository.ErrInvalidHexID
 	}
 
 	// Use o ObjectID para a inserção no MongoDB
@@ -59,7 +59,7 @@ func (r *MongoDBItemRepository) Update(ctx context.Context, item repository.Item
 
 	id, err := primitive.ObjectIDFromHex(item.ID)
 	if err != nil {
-		return repository.Item{}, fmt.Errorf("invalid item ID: %w", err)
+		return repository.Item{}, repository.ErrInvalidHexID
 	}
 
 	filter := bson.M{"_id": id}
@@ -86,7 +86,7 @@ func (r *MongoDBItemRepository) Delete(ctx context.Context, id string) error {
 
 	objID, err := primitive.ObjectIDFromHex(id)
 	if err != nil {
-		return fmt.Errorf("invalid item ID: %w", err)
+		return repository.ErrInvalidHexID
 	}
 
 	filter := bson.M{"_id": objID}
@@ -108,7 +108,7 @@ func (r *MongoDBItemRepository) GetByID(ctx context.Context, id string) (reposit
 
 	objID, err := primitive.ObjectIDFromHex(id)
 	if err != nil {
-		return repository.Item{}, fmt.Errorf("invalid item ID: %w", err)
+		return repository.Item{}, repository.ErrInvalidHexID
 	}
 
 	filter := bson.M{"_id": objID}
@@ -148,54 +148,55 @@ func (r *MongoDBItemRepository) List(ctx context.Context) ([]repository.Item, er
 	return items, nil
 }
 
-// CreateItemWithUser inserts a new item and an associated user in a single transaction
-func (r *MongoDBItemRepository) CreateItemWithUser(ctx context.Context, item repository.Item, user repository.User) (repository.Item, repository.User, error) {
-	session, err := r.client.Client().StartSession()
-	if err != nil {
-		return repository.Item{}, repository.User{}, fmt.Errorf("failed to start session: %w", err)
-	}
-	defer session.EndSession(ctx)
+//TODO adicionar quando implementar  autenticacao de usuario
+// // CreateItemWithUser inserts a new item and an associated user in a single transaction
+// func (r *MongoDBItemRepository) CreateItemWithUser(ctx context.Context, item repository.Item, user repository.User) (repository.Item, repository.User, error) {
+// 	session, err := r.client.Client().StartSession()
+// 	if err != nil {
+// 		return repository.Item{}, repository.User{}, fmt.Errorf("failed to start session: %w", err)
+// 	}
+// 	defer session.EndSession(ctx)
 
-	_, err = session.WithTransaction(ctx, func(sessCtx mongo.SessionContext) (interface{}, error) {
-		itemsCollection := r.client.GetCollection(CollectionItems)
-		usersCollection := r.client.GetCollection(CollectionUsers)
+// 	_, err = session.WithTransaction(ctx, func(sessCtx mongo.SessionContext) (interface{}, error) {
+// 		itemsCollection := r.client.GetCollection(CollectionItems)
+// 		usersCollection := r.client.GetCollection(CollectionUsers)
 
-		// Use the ID provided from the domain layer (already in hex format)
-		objectID, err := primitive.ObjectIDFromHex(item.ID)
-		if err != nil {
-			return nil, fmt.Errorf("provided item ID is not a valid ObjectID: %w", err)
-		}
+// 		// Use the ID provided from the domain layer (already in hex format)
+// 		objectID, err := primitive.ObjectIDFromHex(item.ID)
+// 		if err != nil {
+// 			return nil, fmt.Errorf("provided item ID is not a valid ObjectID: %w", err)
+// 		}
 
-		// Insert item
-		_, err = itemsCollection.InsertOne(sessCtx, bson.M{
-			"_id":    objectID,
-			"name":   item.Name,
-			"active": item.Active,
-		})
-		if err != nil {
-			return nil, fmt.Errorf("failed to insert item: %w", err)
-		}
+// 		// Insert item
+// 		_, err = itemsCollection.InsertOne(sessCtx, bson.M{
+// 			"_id":    objectID,
+// 			"name":   item.Name,
+// 			"active": item.Active,
+// 		})
+// 		if err != nil {
+// 			return nil, fmt.Errorf("failed to insert item: %w", err)
+// 		}
 
-		// Generate a new ObjectID for the user if it's not set
-		if user.ID == "" {
-			user.ID = primitive.NewObjectID().Hex()
-		}
+// 		// Generate a new ObjectID for the user if it's not set
+// 		if user.ID == "" {
+// 			user.ID = primitive.NewObjectID().Hex()
+// 		}
 
-		// Set CreatedBy to the new item's ID for association
-		user.CreatedBy = item.ID
+// 		// Set CreatedBy to the new item's ID for association
+// 		user.CreatedBy = item.ID
 
-		// Insert user
-		_, err = usersCollection.InsertOne(sessCtx, user)
-		if err != nil {
-			return nil, fmt.Errorf("failed to insert user: %w", err)
-		}
+// 		// Insert user
+// 		_, err = usersCollection.InsertOne(sessCtx, user)
+// 		if err != nil {
+// 			return nil, fmt.Errorf("failed to insert user: %w", err)
+// 		}
 
-		return nil, nil
-	})
+// 		return nil, nil
+// 	})
 
-	if err != nil {
-		return repository.Item{}, repository.User{}, fmt.Errorf("transaction failed: %w", err)
-	}
+// 	if err != nil {
+// 		return repository.Item{}, repository.User{}, fmt.Errorf("transaction failed: %w", err)
+// 	}
 
-	return item, user, nil
-}
+// 	return item, user, nil
+// }
