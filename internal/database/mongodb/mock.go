@@ -5,12 +5,25 @@ import (
 
 	"github.com/stretchr/testify/mock"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/integration/mtest"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 // MockMongoCursorOperations is a mock for MongoCursorOperations.
 type MockMongoCursorOperations struct {
 	mock.Mock
+}
+
+func NewMockCollectionWrapper(mt *mtest.T) *mongoCollectionWrapper {
+	return &mongoCollectionWrapper{
+		collection: mt.Coll,
+	}
+}
+
+func NewMockMongoClientWrappers(mt *mtest.T) *mongoClientWrapper {
+	return &mongoClientWrapper{
+		client: mt.Client,
+	}
 }
 
 // All implements MongoCursorOperations.

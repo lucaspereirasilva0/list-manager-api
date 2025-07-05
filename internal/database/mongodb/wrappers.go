@@ -30,27 +30,11 @@ func (mcw *mongoCollectionWrapper) DeleteOne(ctx context.Context, filter interfa
 }
 
 func (mcw *mongoCollectionWrapper) Find(ctx context.Context, filter interface{}, opts ...*options.FindOptions) (MongoCursorOperations, error) {
-	cursor, err := mcw.collection.Find(ctx, filter, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return &mongoCursorWrapper{cursor: cursor}, nil
+	return mcw.collection.Find(ctx, filter, opts...)
 }
 
 func (mcw *mongoCollectionWrapper) DeleteMany(ctx context.Context, filter interface{}, opts ...*options.DeleteOptions) (*mongo.DeleteResult, error) {
 	return mcw.collection.DeleteMany(ctx, filter, opts...)
-}
-
-type mongoCursorWrapper struct {
-	cursor *mongo.Cursor
-}
-
-func (mcw *mongoCursorWrapper) All(ctx context.Context, results interface{}) error {
-	return mcw.cursor.All(ctx, results)
-}
-
-func (mcw *mongoCursorWrapper) Close(ctx context.Context) error {
-	return mcw.cursor.Close(ctx)
 }
 
 type mongoDatabaseWrapper struct {

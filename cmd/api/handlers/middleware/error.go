@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -10,8 +11,9 @@ import (
 // ErrorHandlingMiddleware handles errors that occur during request processing.
 func ErrorHandlingMiddleware(handler func(http.ResponseWriter, *http.Request) error) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		var err error
+
 		wrappedWriter := wrapResponseWriter(w)
-		err := handler(wrappedWriter, r)
 
 		defer func() {
 			if recoverableError := recover(); recoverableError != nil {
@@ -22,7 +24,9 @@ func ErrorHandlingMiddleware(handler func(http.ResponseWriter, *http.Request) er
 				}
 				if !wrappedWriter.wroteHeader {
 					errAPI := handlers.HandleError(wrappedWriter, errFromPanic)
-					http.Error(wrappedWriter, errAPI.Message, errAPI.HTTP)
+					wrappedWriter.Header().Set("Content-Type", "application/json")
+					wrappedWriter.WriteHeader(errAPI.HTTP)
+					_ = json.NewEncoder(wrappedWriter).Encode(errAPI)
 				}
 				return
 			}
@@ -30,8 +34,12 @@ func ErrorHandlingMiddleware(handler func(http.ResponseWriter, *http.Request) er
 			// If the handler returned an error (and no panic occurred), handle it here
 			if err != nil && !wrappedWriter.wroteHeader {
 				errAPI := handlers.HandleError(wrappedWriter, err)
-				http.Error(wrappedWriter, errAPI.Message, errAPI.HTTP)
+				wrappedWriter.Header().Set("Content-Type", "application/json")
+				wrappedWriter.WriteHeader(errAPI.HTTP)
+				_ = json.NewEncoder(wrappedWriter).Encode(errAPI)
 			}
 		}()
+
+		err = handler(wrappedWriter, r)
 	}
 }

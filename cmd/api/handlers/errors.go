@@ -9,7 +9,7 @@ import (
 )
 
 type ErrorAPI struct {
-	Cause   error  `json:"cause"`
+	Cause   any    `json:"cause"`
 	Message string `json:"message"`
 	HTTP    int    `json:"http"`
 }

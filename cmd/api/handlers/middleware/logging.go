@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"fmt"
 	"net/http"
 	"time"
 
@@ -12,21 +13,23 @@ func LoggingMiddleware(logger *zap.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		start := time.Now()
 		fn := func(w http.ResponseWriter, r *http.Request) {
+			wrapped := wrapResponseWriter(w)
+
 			defer func() {
 				if err := recover(); err != nil {
-					wrapped := wrapResponseWriter(w)
+					// Set status to 500 for panic cases
+					wrapped.WriteHeader(http.StatusInternalServerError)
 					logger.Error("request not completed",
 						zap.Int("status", wrapped.Status()),
 						zap.String("method", r.Method),
 						zap.String("path", r.URL.EscapedPath()),
 						zap.Any("response", wrapped.body.String()),
 						zap.Duration("duration", time.Since(start)),
-						zap.Any("error", err),
+						zap.Error(fmt.Errorf("%v", err)),
 					)
 				}
 			}()
 
-			wrapped := wrapResponseWriter(w)
 			next.ServeHTTP(wrapped, r)
 			logger.Info("request completed",
 				zap.Int("status", wrapped.status),

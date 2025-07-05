@@ -11,9 +11,9 @@ GOPATH=$(shell go env GOPATH)
 GOLANGCI_LINT=$(GOPATH)/bin/golangci-lint
 GOIMPORTS=$(GOPATH)/bin/goimports
 
-.PHONY: all build run test clean lint fmt deps help install-lint check-lint
+.PHONY: all build run test clean lint fmt deps help install-lint check-lint coverage
 
-all: fmt lint test build ## Run lint, tests and build
+all: deps fmt lint test coverage build clean ## Update deps, format, lint, test, show coverage and build
 
 build: ## Build the project
 	@echo "Building..."
@@ -23,13 +23,21 @@ run: ## Run the project
 	@echo "Running..."
 	$(GOCMD) run $(MAIN_PATH)
 
-test: ## Run tests
-	@echo "Testing..."
-	$(GOCMD) test -v ./...
+test: ## Run tests and generate coverage report
+	@echo "Testing and generating coverage report..."
+	@$(GOCMD) test -v -coverprofile=coverage.out ./...
+	@grep -v "mock.go" coverage.out > coverage.tmp
+	@mv coverage.tmp coverage.out
+
+coverage: ## Show coverage report
+	@echo "Generating coverage report..."
+	@$(GOCMD) tool cover -func=coverage.out | grep total | awk '{print "Project coverage: " $$3}'
 
 clean: ## Remove generated files
 	@echo "Cleaning..."
 	@rm -rf $(BUILD_DIR)
+	@rm -f coverage.out
+	@rm -f coverage.tmp
 
 check-lint: ## Check if linters are installed
 	@command -v $(GOLANGCI_LINT) >/dev/null 2>&1 || { \
@@ -60,4 +68,4 @@ help: ## Show this help message
 	@echo "  make \033[36m<target>\033[0m"
 	@echo ""
 	@echo "Targets:"
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}' 
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'

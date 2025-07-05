@@ -79,8 +79,8 @@ func TestCreateItem(t *testing.T) {
 			require.Equal(t, tt.wantHTTPStatus, rec.Code)
 
 			if tt.wantErr != nil {
-				// When an error is expected, the middleware writes the error message directly to the response body.
-				require.Equal(t, parserAPIErr(t, tt.wantErr)+"\n", rec.Body.String())
+				// When an error is expected, the middleware writes JSON error to the response body.
+				require.Equal(t, parserAPIErr(t, tt.wantErr), parserAPIErrFromBody(t, rec.Body.Bytes()))
 			} else {
 				// No error is expected, so the body should be empty for a 201 Created.
 				require.Equal(t, tt.wantAPIItem, parserAPIItem(t, rec.Body.Bytes()))
@@ -119,6 +119,20 @@ func TestGetItem(t *testing.T) {
 			wantHTTPStatus:  http.StatusInternalServerError,
 			wantErr:         handlers.NewInternalServerError(errDummy),
 		},
+		{
+			name:            "Given_ItemIDWithSpecificServiceError_When_GetItem_Then_ExpectedHTTPStatusInternalServerError",
+			givenItemID:     "any-id",
+			givenServiceErr: errors.New("database connection failed"),
+			wantHTTPStatus:  http.StatusInternalServerError,
+			wantErr:         handlers.NewInternalServerError(errors.New("database connection failed")),
+		},
+		{
+			name:            "Given_ItemIDWithServiceErrorType_When_GetItem_Then_ExpectedHTTPStatusServiceUnavailable",
+			givenItemID:     "any-id",
+			givenServiceErr: mockServiceError(),
+			wantHTTPStatus:  http.StatusServiceUnavailable,
+			wantErr:         handlers.ErrorAPI{Cause: errors.New("database error"), Message: "failed to connect to database", HTTP: http.StatusServiceUnavailable},
+		},
 	}
 
 	for _, tt := range tests {
@@ -144,8 +158,8 @@ func TestGetItem(t *testing.T) {
 			require.Equal(t, tt.wantHTTPStatus, rec.Code)
 
 			if tt.wantErr != nil {
-				// When an error is expected, the middleware writes the error message directly to the response body.
-				require.Equal(t, parserAPIErr(t, tt.wantErr)+"\n", rec.Body.String())
+				// When an error is expected, the middleware writes JSON error to the response body.
+				require.Equal(t, parserAPIErr(t, tt.wantErr), parserAPIErrFromBody(t, rec.Body.Bytes()))
 			} else {
 				// No error is expected, so the body should contain the item.
 				require.Equal(t, tt.wantAPIItem, parserAPIItem(t, rec.Body.Bytes()))
@@ -185,6 +199,13 @@ func TestUpdateItem(t *testing.T) {
 			wantHTTPStatus:   http.StatusInternalServerError,
 			wantErr:          handlers.NewInternalServerError(errDummy),
 		},
+		{
+			name:             "Given_ServiceWithValidationError_When_UpdateItem_Then_ExpectedHTTPStatusInternalServerError",
+			givenRequestBody: mockItem(),
+			givenServiceErr:  errors.New("validation failed: name cannot be empty"),
+			wantHTTPStatus:   http.StatusInternalServerError,
+			wantErr:          handlers.NewInternalServerError(errors.New("validation failed: name cannot be empty")),
+		},
 	}
 
 	for _, tt := range tests {
@@ -214,7 +235,7 @@ func TestUpdateItem(t *testing.T) {
 			require.Equal(t, tt.wantHTTPStatus, rec.Code)
 
 			if tt.wantErr != nil {
-				require.Equal(t, parserAPIErr(t, tt.wantErr)+"\n", rec.Body.String())
+				require.Equal(t, parserAPIErr(t, tt.wantErr), parserAPIErrFromBody(t, rec.Body.Bytes()))
 			} else {
 				require.Equal(t, tt.wantAPIItem, parserAPIItem(t, rec.Body.Bytes()))
 			}
@@ -248,6 +269,13 @@ func TestDeleteItem(t *testing.T) {
 			wantHTTPStatus:  http.StatusInternalServerError,
 			wantErr:         handlers.NewInternalServerError(errDummy),
 		},
+		{
+			name:            "Given_ServiceWithNotFoundError_When_DeleteItem_Then_ExpectedHTTPStatusInternalServerError",
+			givenItemID:     "any-id",
+			givenServiceErr: errors.New("item not found"),
+			wantHTTPStatus:  http.StatusInternalServerError,
+			wantErr:         handlers.NewInternalServerError(errors.New("item not found")),
+		},
 	}
 
 	for _, tt := range tests {
@@ -273,7 +301,7 @@ func TestDeleteItem(t *testing.T) {
 			require.Equal(t, tt.wantHTTPStatus, rec.Code)
 
 			if tt.wantErr != nil {
-				require.Equal(t, parserAPIErr(t, tt.wantErr)+"\n", rec.Body.String())
+				require.Equal(t, parserAPIErr(t, tt.wantErr), parserAPIErrFromBody(t, rec.Body.Bytes()))
 			} else {
 				require.Empty(t, rec.Body.String())
 			}
@@ -308,6 +336,12 @@ func TestListItems(t *testing.T) {
 			wantHTTPStatus:  http.StatusInternalServerError,
 			wantErr:         handlers.NewInternalServerError(errDummy),
 		},
+		{
+			name:            "Given_ServiceWithTimeoutError_When_ListItems_Then_ExpectedHTTPStatusInternalServerError",
+			givenServiceErr: errors.New("database timeout"),
+			wantHTTPStatus:  http.StatusInternalServerError,
+			wantErr:         handlers.NewInternalServerError(errors.New("database timeout")),
+		},
 	}
 
 	for _, tt := range tests {
@@ -333,7 +367,7 @@ func TestListItems(t *testing.T) {
 			require.Equal(t, tt.wantHTTPStatus, rec.Code)
 
 			if tt.wantErr != nil {
-				require.Equal(t, parserAPIErr(t, tt.wantErr)+"\n", rec.Body.String())
+				require.Equal(t, parserAPIErr(t, tt.wantErr), parserAPIErrFromBody(t, rec.Body.Bytes()))
 			} else {
 				require.Equal(t, tt.wantAPIItems, parserAPIItems(t, rec.Body.Bytes()))
 			}
@@ -369,6 +403,11 @@ func mockInvalidJson() any {
 	return "invalid json"
 }
 
+// mockServiceError returns a service.ErrorService for testing
+func mockServiceError() error {
+	return service.NewErrorService(errors.New("database error"), "failed to connect to database", http.StatusServiceUnavailable)
+}
+
 func parserAPIItem(t *testing.T, body []byte) handlers.Item {
 	var item handlers.Item
 	err := json.Unmarshal(body, &item)
@@ -378,6 +417,13 @@ func parserAPIItem(t *testing.T, body []byte) handlers.Item {
 
 func parserAPIErr(t *testing.T, err error) string {
 	return err.(handlers.ErrorAPI).Message
+}
+
+func parserAPIErrFromBody(t *testing.T, body []byte) string {
+	var errorResponse handlers.ErrorAPI
+	err := json.Unmarshal(body, &errorResponse)
+	require.NoError(t, err)
+	return errorResponse.Message
 }
 
 func parserAPIItems(t *testing.T, body []byte) []handlers.Item {

@@ -148,7 +148,7 @@ func (r *MongoDBItemRepository) List(ctx context.Context) ([]repository.Item, er
 	return items, nil
 }
 
-//TODO adicionar quando implementar  autenticacao de usuario
+//TODO adicionar quando implementar autenticacao de usuario
 // // CreateItemWithUser inserts a new item and an associated user in a single transaction
 // func (r *MongoDBItemRepository) CreateItemWithUser(ctx context.Context, item repository.Item, user repository.User) (repository.Item, repository.User, error) {
 // 	session, err := r.client.Client().StartSession()
