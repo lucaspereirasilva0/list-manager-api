@@ -41,7 +41,7 @@ func TestCreateItem(t *testing.T) {
 			name:             "Given_InvalidJson_When_CreateItem_Then_ExpectedHTTPStatusBadRequest",
 			givenRequestBody: mockInvalidJson(),
 			wantHTTPStatus:   http.StatusBadRequest,
-			wantErr:          handlers.NewDecodeRequestError(errors.New("invalid json")),
+			wantErr:          handlers.NewDecodeRequestError(errors.New("json: cannot unmarshal string into Go value of type handlers.Item")),
 		},
 		{
 			name:             "Given_ItemWithMockedServiceError_When_CreateItem_Then_ExpectedHTTPStatusInternalServerError",
@@ -80,10 +80,10 @@ func TestCreateItem(t *testing.T) {
 
 			if tt.wantErr != nil {
 				// When an error is expected, the middleware writes JSON error to the response body.
-				require.Equal(t, parserAPIErr(t, tt.wantErr), parserAPIErrFromBody(t, rec.Body.Bytes()))
+				assertAPIErrorContains(t, tt.wantErr, rec.Body.Bytes())
 			} else {
 				// No error is expected, so the body should be empty for a 201 Created.
-				require.Equal(t, tt.wantAPIItem, parserAPIItem(t, rec.Body.Bytes()))
+				assertAPIItemEquals(t, tt.wantAPIItem, rec.Body.Bytes())
 			}
 		})
 	}
@@ -110,7 +110,7 @@ func TestGetItem(t *testing.T) {
 			name:           "Given_EmptyItemID_When_GetItem_Then_ExpectedHTTPStatusBadRequest",
 			givenItemID:    "",
 			wantHTTPStatus: http.StatusBadRequest,
-			wantErr:        handlers.NewDecodeRequestError(nil),
+			wantErr:        handlers.NewDecodeRequestError(handlers.ErrIDRequired),
 		},
 		{
 			name:            "Given_ItemIDWithMockedServiceError_When_GetItem_Then_ExpectedHTTPStatusInternalServerError",
@@ -131,7 +131,7 @@ func TestGetItem(t *testing.T) {
 			givenItemID:     "any-id",
 			givenServiceErr: mockServiceError(),
 			wantHTTPStatus:  http.StatusServiceUnavailable,
-			wantErr:         handlers.ErrorAPI{Cause: errors.New("database error"), Message: "failed to connect to database", HTTP: http.StatusServiceUnavailable},
+			wantErr:         service.NewErrorService(errors.New("database error"), "failed to connect to database", service.ServiceSource, http.StatusServiceUnavailable),
 		},
 	}
 
@@ -159,10 +159,10 @@ func TestGetItem(t *testing.T) {
 
 			if tt.wantErr != nil {
 				// When an error is expected, the middleware writes JSON error to the response body.
-				require.Equal(t, parserAPIErr(t, tt.wantErr), parserAPIErrFromBody(t, rec.Body.Bytes()))
+				assertAPIErrorContains(t, tt.wantErr, rec.Body.Bytes())
 			} else {
 				// No error is expected, so the body should contain the item.
-				require.Equal(t, tt.wantAPIItem, parserAPIItem(t, rec.Body.Bytes()))
+				assertAPIItemEquals(t, tt.wantAPIItem, rec.Body.Bytes())
 			}
 		})
 	}
@@ -190,7 +190,7 @@ func TestUpdateItem(t *testing.T) {
 			name:             "Given_InvalidJson_When_UpdateItem_Then_ExpectedHTTPStatusBadRequest",
 			givenRequestBody: mockInvalidJson(),
 			wantHTTPStatus:   http.StatusBadRequest,
-			wantErr:          handlers.NewDecodeRequestError(errors.New("invalid json")),
+			wantErr:          handlers.NewDecodeRequestError(errors.New("json: cannot unmarshal string into Go value of type handlers.Item")),
 		},
 		{
 			name:             "Given_ServiceError_When_UpdateItem_Then_ExpectedHTTPStatusInternalServerError",
@@ -260,7 +260,7 @@ func TestDeleteItem(t *testing.T) {
 			name:           "Given_EmptyItemID_When_DeleteItem_Then_ExpectedHTTPStatusBadRequest",
 			givenItemID:    "",
 			wantHTTPStatus: http.StatusBadRequest,
-			wantErr:        handlers.NewDecodeRequestError(nil),
+			wantErr:        handlers.NewDecodeRequestError(handlers.ErrIDRequired),
 		},
 		{
 			name:            "Given_ServiceError_When_DeleteItem_Then_ExpectedHTTPStatusInternalServerError",
@@ -405,7 +405,7 @@ func mockInvalidJson() any {
 
 // mockServiceError returns a service.ErrorService for testing
 func mockServiceError() error {
-	return service.NewErrorService(errors.New("database error"), "failed to connect to database", http.StatusServiceUnavailable)
+	return service.NewErrorService(errors.New("database error"), "failed to connect to database", service.ServiceSource, http.StatusServiceUnavailable)
 }
 
 func parserAPIItem(t *testing.T, body []byte) handlers.Item {
@@ -415,15 +415,15 @@ func parserAPIItem(t *testing.T, body []byte) handlers.Item {
 	return item
 }
 
-func parserAPIErr(t *testing.T, err error) string {
-	return err.(handlers.ErrorAPI).Message
+func parserAPIErr(_ *testing.T, err error) handlers.ErrorAPI {
+	return err.(handlers.ErrorAPI)
 }
 
-func parserAPIErrFromBody(t *testing.T, body []byte) string {
+func parserAPIErrFromBody(t *testing.T, body []byte) handlers.ErrorAPI {
 	var errorResponse handlers.ErrorAPI
 	err := json.Unmarshal(body, &errorResponse)
 	require.NoError(t, err)
-	return errorResponse.Message
+	return errorResponse
 }
 
 func parserAPIItems(t *testing.T, body []byte) []handlers.Item {
@@ -431,4 +431,18 @@ func parserAPIItems(t *testing.T, body []byte) []handlers.Item {
 	err := json.Unmarshal(body, &items)
 	require.NoError(t, err)
 	return items
+}
+
+func assertAPIErrorContains(t *testing.T, wantErr error, body []byte) {
+	var errorResponse handlers.ErrorAPI
+	err := json.Unmarshal(body, &errorResponse)
+	require.NoError(t, err)
+	require.ErrorContains(t, wantErr, errorResponse.Cause)
+}
+
+func assertAPIItemEquals(t *testing.T, item handlers.Item, b []byte) {
+	var itemResponse handlers.Item
+	err := json.Unmarshal(b, &itemResponse)
+	require.NoError(t, err)
+	require.Equal(t, item, itemResponse)
 }

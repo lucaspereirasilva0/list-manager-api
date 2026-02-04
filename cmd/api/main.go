@@ -42,12 +42,18 @@ func main() {
 	}
 
 	// Get MongoDB URI from environment variable
-	if uri := os.Getenv("MONGO_URI"); uri != "" {
-		mongoURI = uri
+	if scope := os.Getenv("SCOPE"); scope == "local" {
+		mongoURI = "mongodb://localhost:27017"
+	} else {
+		if uri := os.Getenv("MONGO_URI"); uri != "" {
+			mongoURI = uri
+		}
 	}
 	// Get MongoDB DB Name from environment variable
 	if dbName := os.Getenv("MONGO_DB_NAME"); dbName != "" {
 		mongoDBName = dbName
+	} else {
+		mongoDBName = "listmanager"
 	}
 
 	// Create context for MongoDB connection
@@ -55,7 +61,7 @@ func main() {
 	defer cancel()
 
 	// Create MongoDB client
-	mongoClient, err := createMongoClient(ctx, mongoURI, mongoDBName, logger)
+	mongoClient, err := createMongoClient(ctx, mongoURI, mongoDBName)
 	if err != nil {
 		logger.Fatal("Failed to create MongoDB client", zap.Error(err))
 	}
@@ -84,7 +90,7 @@ func main() {
 	)
 }
 
-func createMongoClient(ctx context.Context, mongoURI, mongoDBName string, logger *zap.Logger) (*dbmongo.ClientWrapper, error) {
+func createMongoClient(ctx context.Context, mongoURI, mongoDBName string) (*dbmongo.ClientWrapper, error) {
 	// Create MongoDB client
 	mongoClient, err := dbmongo.NewClient(ctx, mongoURI, mongoDBName)
 	if err != nil {

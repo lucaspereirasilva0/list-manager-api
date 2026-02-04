@@ -4,21 +4,28 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"log"
+	"time"
+
+	"github.com/google/uuid"
 )
 
 // Item represents the main domain entity
 type Item struct {
-	ID     string
-	Name   string
-	Active bool
+	ID        string
+	Name      string
+	Active    bool
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 // NewItem creates a new instance of Item
 func NewItem(name string, active bool) Item {
 	return Item{
-		ID:     generateID(),
-		Name:   name,
-		Active: active,
+		ID:        generateID(),
+		Name:      name,
+		Active:    active,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
 	}
 }
 
@@ -39,7 +46,7 @@ func generateID() string {
 		log.Printf("Error generating random bytes for ID: %v", err)
 		// Em caso de erro, podemos retornar uma string vazia ou um ID de fallback, dependendo da política.
 		// Por simplicidade aqui, retornamos uma string vazia e lidamos com isso no nível superior se necessário.
-		return ""
+		return uuid.New().String()
 	}
 
 	return hex.EncodeToString(objectIDBytes)

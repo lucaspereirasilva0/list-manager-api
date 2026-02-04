@@ -32,7 +32,7 @@ func (h *handler) CreateItem(w http.ResponseWriter, r *http.Request) error {
 		return NewDecodeRequestError(err)
 	}
 
-	createdItem, err := h.service.CreateItem(ctx, item.Name, item.Active)
+	createdItem, err := h.service.CreateItem(ctx, h.parser.toDomainModel(item))
 	if err != nil {
 		return err
 	}

@@ -39,7 +39,7 @@ func TestCreateItem(t *testing.T) {
 			name:                "Given_Item_When_CreateItem_Then_ExpectedInternalError",
 			givenItem:           mockServiceItem(),
 			givenRepositoryItem: mockOutputRepositoryItem(),
-			wantErr:             mockInternalServerError(repository.NewRepositoryError(errDummy)),
+			wantErr:             mockInternalServerError(repository.NewGenericRepositoryError(errDummy)),
 		},
 	}
 	for _, tt := range tests {
@@ -50,7 +50,7 @@ func TestCreateItem(t *testing.T) {
 			mockRepo.On("Create", ctx, mock.MatchedBy(validateRepositoryItem(tt.givenRepositoryItem))).Return(tt.givenRepositoryItem, tt.wantErr)
 
 			service := service.NewItemService(mockRepo)
-			item, err := service.CreateItem(ctx, tt.givenItem.Name, tt.givenItem.Active)
+			item, err := service.CreateItem(ctx, tt.givenItem)
 
 			if tt.wantErr != nil {
 				require.ErrorContains(t, err, tt.wantErr.Error())
@@ -143,11 +143,14 @@ func TestUpdateItem(t *testing.T) {
 		{
 			name:      "Given_InternalError_When_UpdateItem_Then_ExpectedInternalServerError",
 			givenItem: domain.Item{ID: _dummyID, Name: "updated-name", Active: false},
+			mockGetByID: mockGetByID{
+				givenItem: mockRepositoryItem(),
+			},
 			mockUpdate: mockUpdate{
 				givenOutputItem: mockOutputRepositoryItem(),
-				givenUpdateErr:  repository.NewRepositoryError(errDummy),
+				givenUpdateErr:  repository.NewGenericRepositoryError(errDummy),
 			},
-			wantErr: mockInternalServerError(repository.NewRepositoryError(errDummy)),
+			wantErr: mockInternalServerError(repository.NewGenericRepositoryError(errDummy)),
 		},
 		{
 			name:      "Given_EmptyItem_When_UpdateItem_Then_ExpectedEmptyItemError",
@@ -195,7 +198,7 @@ func TestDeleteItem(t *testing.T) {
 		{
 			name:    "Given_Item_When_DeleteItem_Then_ExpectedErrFailedDeleteItem",
 			givenID: _dummyID,
-			wantErr: mockInternalServerError(repository.NewRepositoryError(errDummy)),
+			wantErr: mockInternalServerError(repository.NewGenericRepositoryError(errDummy)),
 		},
 	}
 
@@ -239,7 +242,7 @@ func TestListItems(t *testing.T) {
 			name:                 "Given_Error_When_ListItems_Then_ExpectedInternalError",
 			givenRepositoryItems: []repository.Item{},
 			wantServiceItems:     []domain.Item{},
-			wantErr:              mockInternalServerError(repository.NewRepositoryError(errDummy)),
+			wantErr:              mockInternalServerError(repository.NewGenericRepositoryError(errDummy)),
 		},
 	}
 
@@ -289,8 +292,9 @@ func mockServiceItem() domain.Item {
 
 func mockNotFoundRepositoryError() error {
 	return service.NewErrorService(
-		repository.ErrItemNotFound,
+		repository.NewItemNotFoundError(),
 		"item not found",
+		service.RepositorySource,
 		http.StatusNotFound,
 	)
 }
@@ -299,6 +303,7 @@ func mockInternalServerError(err error) error {
 	return service.NewErrorService(
 		err,
 		"internal server error",
+		service.ServiceSource,
 		http.StatusInternalServerError,
 	)
 }

@@ -1,133 +1,133 @@
-# Documento de Arquitetura do Projeto: List Manager API
+# Project Architecture Document: List Manager API
 
-## 1. Introdução
+## 1. Introduction
 
-Este documento descreve a arquitetura da "List Manager API", um serviço de backend robusto para gerenciar listas de itens, especificamente produtos e usuários. O projeto foca na integração com MongoDB como o principal armazenamento de dados, implementando operações CRUD e aderindo aos princípios da Arquitetura Limpa.
+This document describes the architecture of the "List Manager API", a robust backend service for managing lists of items, specifically products and users. The project focuses on integration with MongoDB as the primary data storage, implementing CRUD operations and adhering to Clean Architecture principles.
 
-## 2. Metas e Requisitos
+## 2. Goals and Requirements
 
-Os principais objetivos e requisitos deste projeto incluem:
+The main objectives and requirements of this project include:
 
-- Implementar uma API de gerenciamento de listas em Go.
-- Integrar MongoDB para persistência de dados.
-- Definir modelos de dados para `Products` e `Users` com campos como `_id`, `name`, `active` para produtos e `_id`, `created_by` para usuários.
-- Implementar operações transacionais quando aplicável.
-- Aderir à Arquitetura Limpa: separação de handlers/controllers, services/use cases, repositories/data access e modelos de domínio.
-- Seguir práticas idiomáticas de Go, design modular, testabilidade e melhores práticas de desenvolvimento backend.
-- Garantir tratamento de erros adequado, injeção de dependência e propagação de contexto.
-- Desenvolver testes de unidade e integração abrangentes.
+- Implement a list management API in Go.
+- Integrate MongoDB for data persistence.
+- Define data models for `Products` and `Users` with fields such as `_id`, `name`, `active` for products and `_id`, `created_by` for users.
+- Implement transactional operations when applicable.
+- Adhere to Clean Architecture: separation of handlers/controllers, services/use cases, repositories/data access and domain models.
+- Follow idiomatic Go practices, modular design, testability, and best backend development practices.
+- Ensure proper error handling, dependency injection, and context propagation.
+- Develop comprehensive unit and integration tests.
 
-## 3. Visão Geral da Arquitetura
+## 3. Architecture Overview
 
-A arquitetura do projeto segue os princípios da Arquitetura Limpa (Clean Architecture), promovendo a separação de preocupações e a testabilidade. O sistema é dividido em camadas distintas:
+The project architecture follows Clean Architecture principles, promoting separation of concerns and testability. The system is divided into distinct layers:
 
-- **Handlers (ou Controllers)**: Responsáveis por receber requisições HTTP, parsear entradas e chamar a camada de Serviço.
-- **Services (ou Use Cases)**: Contêm a lógica de negócio principal do aplicativo, orquestrando operações e interagindo com a camada de Repositório.
-- **Repositories (ou Data Access)**: Abstraem a complexidade da persistência de dados, fornecendo interfaces para operações CRUD.
-- **Domain**: Define as entidades de negócio e suas regras.
-- **Database (MongoDB)**: O armazenamento de dados persistente.
+- **Handlers (or Controllers)**: Responsible for receiving HTTP requests, parsing inputs, and calling the Service layer.
+- **Services (or Use Cases)**: Contain the main business logic of the application, orchestrating operations and interacting with the Repository layer.
+- **Repositories (or Data Access)**: Abstract the complexity of data persistence, providing interfaces for CRUD operations.
+- **Domain**: Defines business entities and their rules.
+- **Database (MongoDB)**: The persistent data storage.
 
-A comunicação entre as camadas é feita através de interfaces, garantindo baixo acoplamento.
+Communication between layers is done through interfaces, ensuring low coupling.
 
-## 4. Componentes Chave
+## 4. Key Components
 
-- **`cmd/api/handlers`**: Lida com as requisições HTTP, roteamento e validação de entrada. Contém `item.go` para operações relacionadas a itens, `errors.go` para tratamento de erros HTTP, `middleware.go` para middlewares, e `model.go` para modelos de requisição/resposta.
-- **`internal/service`**: Contém a lógica de negócio e os casos de uso. `item.go` define os serviços para operações de item. `parser.go` para parsear e validar dados de entrada.
-- **`internal/repository`**: Define interfaces para abstrair o armazenamento de dados.
-  - **`internal/repository/mongodb`**: Implementação concreta das interfaces de repositório usando MongoDB. Inclui `repository.go` para operações CRUD de `Product` e `User`.
-  - **`internal/repository/local`**: Uma implementação de repositório local (em memória) que pode ser substituída ou aumentada pela implementação MongoDB.
-- **`internal/domain`**: Contém as definições de modelos de dados, como `item.go` para as estruturas `Product` e `User`.
-- **`internal/database/mongodb`**: Gerencia a conexão e as operações de baixo nível com o cliente MongoDB, incluindo `client.go` e `interfaces.go`.
+- **`cmd/api/handlers`**: Handles HTTP requests, routing, and input validation. Contains `item.go` for item-related operations, `errors.go` for HTTP error handling, `middleware.go` for middlewares, and `model.go` for request/response models.
+- **`internal/service`**: Contains business logic and use cases. `item.go` defines services for item operations. `parser.go` for parsing and validating input data.
+- **`internal/repository`**: Defines interfaces for abstracting data storage.
+  - **`internal/repository/mongodb`**: Concrete implementation of repository interfaces using MongoDB. Includes `repository.go` for CRUD operations of `Product` and `User`.
+  - **`internal/repository/local`**: A local repository implementation (in-memory) that can be replaced or augmented by the MongoDB implementation.
+- **`internal/domain`**: Contains data model definitions, such as `item.go` for `Product` and `User` structures.
+- **`internal/database/mongodb`**: Manages connection and low-level operations with the MongoDB client, including `client.go` and `interfaces.go`.
 
-## 4.1 Visão Geral dos Componentes Chave e Estrutura de Pacotes
+## 4.1 Key Components Overview and Package Structure
 
-A estrutura do projeto é organizada para seguir os princípios da Arquitetura Limpa, com uma clara separação de responsabilidades. Abaixo, detalhamos os principais componentes e a organização de seus respectivos pacotes.
+The project structure is organized to follow Clean Architecture principles, with a clear separation of responsibilities. Below, we detail the main components and the organization of their respective packages.
 
-### 4.1.1 Estrutura de Pacotes e Resumo
+### 4.1.1 Package Structure and Summary
 
-O projeto está organizado nos seguintes diretórios e pacotes, cada um com uma função específica:
+The project is organized in the following directories and packages, each with a specific function:
 
-- **`cmd/`**: Contém as entradas principais da aplicação.
-  - **`cmd/api/`**: Onde a aplicação principal da API é definida.
-    - **`cmd/api/handlers/`**: Pacote responsável por lidar com as requisições HTTP, roteamento e validação de entrada.
-      - `cors.go`: Configurações de Cross-Origin Resource Sharing (CORS).
-      - `errors.go`: Definições para tratamento de erros HTTP.
-      - `handlers.go`: Definições gerais dos manipuladores de requisição.
-      - `handlers_test.go`: Testes unitários para os manipuladores HTTP.
-      - `item.go`: Manipuladores específicos para operações de itens (produtos e usuários).
-      - `middleware.go`: Implementa middlewares HTTP para funcionalidades como autenticação e logging.
-      - `model.go`: Definições de modelos de dados para requisições e respostas HTTP.
-      - `parser.go`: Utilitários para parsear dados das requisições.
-      - `version.go`: Informações de versão da API.
-    - **`cmd/api/main.go`**: O ponto de entrada principal da aplicação API.
-    - **`cmd/api/server/`**: Contém a configuração e inicialização do servidor HTTP.
-      - `server.go`: Responsável por configurar e iniciar o servidor.
-- **`docs/`**: Contém a documentação do projeto.
-  - `architecture.md`: Este documento de arquitetura.
-- **`internal/`**: Código interno da aplicação, não destinado a ser exposto publicamente.
-  - **`internal/database/`**: Contém a abstração para a interação com o banco de dados.
-    - **`internal/database/mongodb/`**: Implementações específicas para o MongoDB.
-      - `client.go`: Lógica para conexão e gerenciamento do cliente MongoDB.
-      - `interfaces.go`: Interfaces para as operações do cliente MongoDB.
-      - `wrappers.go`: Funções de "wrapper" para operações de baixo nível do MongoDB.
-  - **`internal/domain/`**: Define as entidades do domínio e as regras de negócio puras.
-    - `item.go`: Definição das estruturas de dados `Product` e `User`. Inclui a função `generateID()` para criar IDs compatíveis com `ObjectID` do MongoDB, e métodos de lógica de negócio como `IsEmpty()` e `IsActive()`.
-    - `item_test.go`: Testes unitários para as entidades de domínio.
-  - **`internal/repository/`**: Camada de abstração para persistência de dados.
-    - `errors.go`: Erros específicos da camada de repositório.
-    - `mock.go`: Implementações mock para facilitar os testes unitários dos repositórios.
-    - `model.go`: Modelos de dados utilizados internamente pela camada de repositório.
-    - `repository.go`: Interfaces que definem os contratos para operações de persistência de dados.
-    - **`internal/repository/local/`**: Implementação de repositório em memória para desenvolvimento/testes rápidos.
-      - `service.go`: Serviço do repositório local.
-    - **`internal/repository/mongodb/`**: Implementação concreta das interfaces de repositório para MongoDB.
-      - `repository.go`: Lógica para persistência de `Product` e `User` no MongoDB. Inclui a implementação de transações MongoDB para operações multi-documento/coleção, como `CreateItemWithUser`, garantindo a atomicidade.
-      - `repository_test.go`: Testes unitários para o repositório MongoDB.
-  - **`internal/service/`**: Contém a lógica de negócio principal (casos de uso).
-    - `errors.go`: Erros específicos da camada de serviço.
-    - `item.go`: Lógica de negócio para operações de itens (produtos e usuários).
-    - `mock.go`: Implementações mock para testes unitários dos serviços.
-    - `parser.go`: Utilitários para parsear e validar dados dentro da camada de serviço.
-    - `service.go`: Definições gerais dos serviços.
-    - `service_test.go`: Testes unitários para os serviços.
-- **`memory-bank/`**: Diretório que contém documentos de contexto e informações de projeto.
-  - `activeContext.md`, `productContext.md`, `progress.md`, `projectbrief.md`, `systemPatterns.md`, `techContext.md`: Documentos diversos de contexto.
-- **`docker-compose.yml`**: Arquivo de configuração do Docker Compose para orquestração de serviços (ex: MongoDB).
-- **`go.mod`**: Módulo Go, define as dependências do projeto.
-- **`go.sum`**: Checksums das dependências do módulo Go.
-- **`Makefile`**: Arquivo Makefile para automatizar tarefas de construção, teste e implantação.
-- **`README.md`**: Documento de introdução ao projeto.
+- **`cmd/`**: Contains the main application entries.
+  - **`cmd/api/`**: Where the main API application is defined.
+    - **`cmd/api/handlers/`**: Package responsible for handling HTTP requests, routing, and input validation.
+      - `cors.go`: Cross-Origin Resource Sharing (CORS) configurations.
+      - `errors.go`: Definitions for HTTP error handling.
+      - `handlers.go`: General request handler definitions.
+      - `handlers_test.go`: Unit tests for HTTP handlers.
+      - `item.go`: Specific handlers for item operations (products and users).
+      - `middleware.go`: Implements HTTP middlewares for features such as authentication and logging.
+      - `model.go`: Data model definitions for HTTP requests and responses.
+      - `parser.go`: Utilities for parsing request data.
+      - `version.go`: API version information.
+    - **`cmd/api/main.go`**: The main entry point of the API application.
+    - **`cmd/api/server/`**: Contains HTTP server configuration and initialization.
+      - `server.go`: Responsible for configuring and starting the server.
+- **`docs/`**: Contains project documentation.
+  - `architecture.md`: This architecture document.
+- **`internal/`**: Internal application code, not intended to be exposed publicly.
+  - **`internal/database/`**: Contains abstraction for database interaction.
+    - **`internal/database/mongodb/`**: Specific implementations for MongoDB.
+      - `client.go`: Logic for MongoDB client connection and management.
+      - `interfaces.go`: Interfaces for MongoDB client operations.
+      - `wrappers.go`: "Wrapper" functions for low-level MongoDB operations.
+  - **`internal/domain/`**: Defines domain entities and pure business rules.
+    - `item.go`: Definition of `Product` and `User` data structures. Includes the `generateID()` function to create IDs compatible with MongoDB's `ObjectID`, and business logic methods such as `IsEmpty()` and `IsActive()`.
+    - `item_test.go`: Unit tests for domain entities.
+  - **`internal/repository/`**: Data persistence abstraction layer.
+    - `errors.go`: Repository-specific errors.
+    - `mock.go`: Mock implementations to facilitate repository unit tests.
+    - `model.go`: Data models used internally by the repository layer.
+    - `repository.go`: Interfaces that define contracts for data persistence operations.
+    - **`internal/repository/local/`**: In-memory repository implementation for development/quick tests.
+      - `service.go`: Local repository service.
+    - **`internal/repository/mongodb/`**: Concrete implementation of repository interfaces for MongoDB.
+      - `repository.go`: Logic for persistence of `Product` and `User` in MongoDB. Includes MongoDB transaction implementation for multi-document/collection operations, such as `CreateItemWithUser`, ensuring atomicity.
+      - `repository_test.go`: Unit tests for the MongoDB repository.
+  - **`internal/service/`**: Contains the main business logic (use cases).
+    - `errors.go`: Service-specific errors.
+    - `item.go`: Business logic for item operations (products and users).
+    - `mock.go`: Mock implementations for service unit tests.
+    - `parser.go`: Utilities for parsing and validating data within the service layer.
+    - `service.go`: General service definitions.
+    - `service_test.go`: Unit tests for services.
+- **`memory-bank/`**: Directory containing context documents and project information.
+  - `activeContext.md`, `productContext.md`, `progress.md`, `projectbrief.md`, `systemPatterns.md`, `techContext.md`: Various context documents.
+- **`docker-compose.yml`**: Docker Compose configuration file for service orchestration (e.g., MongoDB).
+- **`go.mod`**: Go module, defines project dependencies.
+- **`go.sum`**: Go module dependency checksums.
+- **`Makefile`**: Makefile for automating build, test, and deployment tasks.
+- **`README.md`**: Project introduction document.
 
-## 5. Persistência de Dados
+## 5. Data Persistence
 
-O MongoDB é o banco de dados principal, configurado via `docker-compose.yml`. As entidades `Product` e `User` são persistidas com tags `bson` para mapeamento correto. As operações transacionais são implementadas quando necessárias para garantir a integridade dos dados, como visto na função `CreateItemWithUser` no repositório MongoDB.
+MongoDB is the primary database, configured via `docker-compose.yml`. The `Product` and `User` entities are persisted with `bson` tags for correct mapping. Transactional operations are implemented when necessary to ensure data integrity, as seen in the `CreateItemWithUser` function in the MongoDB repository.
 
-## 6. Estratégia de Testes
+## 6. Testing Strategy
 
-- **Testes de Unidade**: Priorizam testes de unidade extensivos para a camada de repositório usando mocks para dependências do MongoDB. Isso evita a necessidade de uma instância de Docker para testes de unidade e garante isolamento.
-- **Testes de Integração**: Serão considerados após a estabilidade dos testes de unidade, com potencial uso de `testcontainers-go` para simular um ambiente de banco de dados real.
-- **Testes Manuais**: Validação inicial da funcionalidade através de testes manuais para confirmar operações CRUD básicas.
+- **Unit Tests**: Prioritize extensive unit tests for the repository layer using mocks for MongoDB dependencies. This eliminates the need for a Docker instance for unit tests and ensures isolation.
+- **Integration Tests**: Will be considered after unit tests are stable, with potential use of `testcontainers-go` to simulate a real database environment.
+- **Manual Tests**: Initial functionality validation through manual tests to confirm basic CRUD operations.
 
-## 7. Tratamento de Erros
+## 7. Error Handling
 
-Um tratamento de erros robusto é garantido, com o encapsulamento e propagação de erros para facilitar a rastreabilidade e depuração. Erros específicos do domínio e do sistema são tratados de forma apropriada.
+Robust error handling is ensured, with error encapsulation and propagation to facilitate traceability and debugging. Domain and system-specific errors are handled appropriately.
 
-## 8. Injeção de Dependência
+## 8. Dependency Injection
 
-A injeção de dependência é realizada através de funções construtoras, garantindo que as dependências sejam passadas de forma explícita e controlada, o que melhora a testabilidade e a modularidade do código.
+Dependency injection is performed through constructor functions, ensuring that dependencies are passed explicitly and controlled, which improves testability and code modularity.
 
-## 9. Observabilidade
+## 9. Observability
 
-A aplicação utiliza `go.uber.org/zap` para logging estruturado, o que facilita a análise e depuração de logs em ambientes de produção. Os logs são configurados para fornecer informações detalhadas sobre o fluxo da aplicação.
+The application uses `go.uber.org/zap` for structured logging, which facilitates log analysis and debugging in production environments. Logs are configured to provide detailed information about the application flow.
 
-**Futura Integração com OpenTelemetry**: Há planos para integrar o OpenTelemetry para tracing distribuído e métricas. Esta integração permitirá uma visibilidade mais profunda do desempenho e do fluxo das requisições através dos serviços, complementando o logging existente com rastreamento de ponta a ponta e coleta de métricas padronizadas.
+**Future OpenTelemetry Integration**: Plans to integrate OpenTelemetry for distributed tracing and metrics. This integration will allow deeper visibility into performance and request flow through services, complementing existing logging with end-to-end tracing and standardized metrics collection.
 
-## 10. Ordem dos Middlewares
+## 10. Middleware Order
 
-No `cmd/api/server/server.go`, os middlewares são aplicados na seguinte ordem para garantir o comportamento correto:
+In `cmd/api/server/server.go`, middlewares are applied in the following order to ensure correct behavior:
 
-1.  **`CORSMiddleware`**: Aplicado primeiro para manipular as requisições de pré-voo (preflight requests) do CORS antes de qualquer outra lógica de middleware ou roteamento.
-2.  **`LoggingMiddleware`**: Aplicado após o CORS para registrar as requisições que passaram pela verificação de CORS.
-3.  **Router (`mux.NewRouter()`)**: O roteador é o último a ser aplicado, garantindo que as requisições sejam logadas e que o CORS seja tratado antes de o roteamento ser realizado.
+1. **`CORSMiddleware`**: Applied first to handle CORS preflight requests before any other middleware or routing logic.
+2. **`LoggingMiddleware`**: Applied after CORS to log requests that have passed the CORS check.
+3. **Router (`mux.NewRouter()`)**: The router is applied last, ensuring that requests are logged and CORS is handled before routing is performed.
 
 ---

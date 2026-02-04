@@ -2,8 +2,8 @@ package mongodb
 
 import (
 	"context"
-	"fmt"
 	"log"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -37,17 +37,19 @@ func (r *MongoDBItemRepository) Create(ctx context.Context, item repository.Item
 	// Converte o ID fornecido (agora um hexadecimal de 24 caracteres) para um ObjectID
 	objectID, err := primitive.ObjectIDFromHex(item.ID)
 	if err != nil {
-		return repository.Item{}, repository.ErrInvalidHexID
+		return repository.Item{}, repository.NewInvalidHexIDError()
 	}
 
 	// Use o ObjectID para a inserção no MongoDB
 	_, err = collection.InsertOne(ctx, bson.M{
-		"_id":    objectID,
-		"name":   item.Name,
-		"active": item.Active,
+		"_id":       objectID,
+		"name":      item.Name,
+		"active":    item.Active,
+		"createdAt": time.Now(),
+		"updatedAt": time.Now(),
 	})
 	if err != nil {
-		return repository.Item{}, fmt.Errorf("failed to create item: %w", err)
+		return repository.Item{}, repository.HandleError(err)
 	}
 
 	return item, nil
@@ -59,22 +61,23 @@ func (r *MongoDBItemRepository) Update(ctx context.Context, item repository.Item
 
 	id, err := primitive.ObjectIDFromHex(item.ID)
 	if err != nil {
-		return repository.Item{}, repository.ErrInvalidHexID
+		return repository.Item{}, repository.NewInvalidHexIDError()
 	}
 
 	filter := bson.M{"_id": id}
 	update := bson.M{"$set": bson.M{
-		"name":   item.Name,
-		"active": item.Active,
+		"name":      item.Name,
+		"active":    item.Active,
+		"updatedAt": time.Now(),
 	}}
 
 	result, err := collection.UpdateOne(ctx, filter, update)
 	if err != nil {
-		return repository.Item{}, fmt.Errorf("failed to update item: %w", err)
+		return repository.Item{}, repository.HandleError(err)
 	}
 
 	if result.MatchedCount == 0 {
-		return repository.Item{}, repository.ErrNotFound
+		return repository.Item{}, repository.NewItemNotFoundError()
 	}
 
 	return item, nil
@@ -86,17 +89,17 @@ func (r *MongoDBItemRepository) Delete(ctx context.Context, id string) error {
 
 	objID, err := primitive.ObjectIDFromHex(id)
 	if err != nil {
-		return repository.ErrInvalidHexID
+		return repository.NewInvalidHexIDError()
 	}
 
 	filter := bson.M{"_id": objID}
 	result, err := collection.DeleteOne(ctx, filter)
 	if err != nil {
-		return fmt.Errorf("failed to delete item: %w", err)
+		return repository.HandleError(err)
 	}
 
 	if result.DeletedCount == 0 {
-		return repository.ErrNotFound
+		return repository.NewItemNotFoundError()
 	}
 
 	return nil
@@ -108,7 +111,7 @@ func (r *MongoDBItemRepository) GetByID(ctx context.Context, id string) (reposit
 
 	objID, err := primitive.ObjectIDFromHex(id)
 	if err != nil {
-		return repository.Item{}, repository.ErrInvalidHexID
+		return repository.Item{}, repository.NewInvalidHexIDError()
 	}
 
 	filter := bson.M{"_id": objID}
@@ -116,9 +119,9 @@ func (r *MongoDBItemRepository) GetByID(ctx context.Context, id string) (reposit
 
 	err = collection.FindOne(ctx, filter).Decode(&item)
 	if err == mongo.ErrNoDocuments {
-		return repository.Item{}, repository.ErrNotFound
+		return repository.Item{}, repository.NewItemNotFoundError()
 	} else if err != nil {
-		return repository.Item{}, fmt.Errorf("failed to get item by ID: %w", err)
+		return repository.Item{}, repository.HandleError(err)
 	}
 
 	return item, nil
@@ -130,7 +133,7 @@ func (r *MongoDBItemRepository) List(ctx context.Context) ([]repository.Item, er
 
 	cursor, err := collection.Find(ctx, bson.M{})
 	if err != nil {
-		return nil, fmt.Errorf("failed to list items: %w", err)
+		return nil, repository.HandleError(err)
 	}
 	defer func() {
 		if cursor != nil {
@@ -142,7 +145,7 @@ func (r *MongoDBItemRepository) List(ctx context.Context) ([]repository.Item, er
 
 	var items []repository.Item
 	if err = cursor.All(ctx, &items); err != nil {
-		return nil, fmt.Errorf("failed to decode items: %w", err)
+		return nil, repository.HandleError(err)
 	}
 
 	return items, nil

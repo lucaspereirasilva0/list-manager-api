@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/lucaspereirasilva0/list-manager-api/internal/repository"
 
@@ -36,7 +37,7 @@ func mockInvalidHexIDItemInput() repository.Item {
 }
 
 func mockCreateItemOutput() repository.Item {
-	return repository.Item{ID: testObjectID.Hex(), Name: "Test Item", Active: true}
+	return repository.Item{ID: testObjectID.Hex(), Name: "Test Item", Active: true, CreatedAt: time.Time{}, UpdatedAt: time.Time{}}
 }
 
 func mockFoundItemOutput() repository.Item {
@@ -44,7 +45,7 @@ func mockFoundItemOutput() repository.Item {
 }
 
 func mockUpdateItemOutput() repository.Item {
-	return repository.Item{ID: testObjectID.Hex(), Name: "Updated Item", Active: false}
+	return repository.Item{ID: testObjectID.Hex(), Name: "Updated Item", Active: false, UpdatedAt: time.Time{}}
 }
 
 func mockItemListOutput() []repository.Item {
@@ -118,7 +119,7 @@ func TestCreate(t *testing.T) {
 		{
 			name:      "Given_ItemWithInvalidHexID_When_Create_Then_ExpectedInvalidIDError",
 			givenItem: mockInvalidHexIDItemInput(),
-			wantErr:   repository.ErrInvalidHexID,
+			wantErr:   repository.NewInvalidHexIDError(),
 		},
 	}
 
@@ -138,11 +139,11 @@ func TestCreate(t *testing.T) {
 			createdItem, err := repo.Create(ctx, tt.givenItem)
 
 			if tt.wantErr != nil {
-				require.ErrorIs(t, err, tt.wantErr)
+				require.ErrorContains(t, err, tt.wantErr.Error())
 			} else {
 				require.NoError(t, err)
+				require.Equal(t, tt.wantCreatedItem, createdItem)
 			}
-			require.Equal(t, tt.wantCreatedItem, createdItem)
 
 			collectionMock.AssertExpectations(t)
 			clientMock.AssertExpectations(t)
@@ -170,7 +171,7 @@ func TestGetByID(t *testing.T) {
 			name:                   "Given_ValidID_When_GetByID_And_ItemNotFound_Then_ExpectedNotFoundError",
 			givenID:                testObjectID.Hex(),
 			givenMockFindOneResult: mockNotFoundFindOneResult(),
-			wantErr:                repository.ErrNotFound,
+			wantErr:                repository.NewItemNotFoundError(),
 		},
 		{
 			name:                   "Given_ValidID_When_GetByID_And_DatabaseError_Then_ExpectedInternalError",
@@ -181,7 +182,7 @@ func TestGetByID(t *testing.T) {
 		{
 			name:    "Given_InvalidID_When_GetByID_Then_ExpectedInvalidIDError",
 			givenID: "invalid-id",
-			wantErr: repository.ErrInvalidHexID,
+			wantErr: repository.NewInvalidHexIDError(),
 		},
 	}
 
@@ -201,7 +202,7 @@ func TestGetByID(t *testing.T) {
 			item, err := repo.GetByID(ctx, tt.givenID)
 
 			if tt.wantErr != nil {
-				require.ErrorIs(t, err, tt.wantErr)
+				require.ErrorContains(t, err, tt.wantErr.Error())
 			} else {
 				require.NoError(t, err)
 			}
@@ -234,7 +235,7 @@ func TestUpdate(t *testing.T) {
 			name:                     "Given_ValidItem_When_Update_And_ItemNotFound_Then_ExpectedNotFoundError",
 			givenItem:                mockUpdateItemInput(),
 			givenMockUpdateOneResult: mockNotFoundUpdateOneResult(),
-			wantErr:                  repository.ErrNotFound,
+			wantErr:                  repository.NewItemNotFoundError(),
 		},
 		{
 			name:                    "Given_ValidItem_When_Update_And_DatabaseError_Then_ExpectedInternalError",
@@ -245,7 +246,7 @@ func TestUpdate(t *testing.T) {
 		{
 			name:      "Given_InvalidID_When_Update_Then_ExpectedInvalidIDError",
 			givenItem: mockInvalidHexIDItemInput(),
-			wantErr:   repository.ErrInvalidHexID,
+			wantErr:   repository.NewInvalidHexIDError(),
 		},
 	}
 
@@ -265,11 +266,11 @@ func TestUpdate(t *testing.T) {
 			updatedItem, err := repo.Update(ctx, tt.givenItem)
 
 			if tt.wantErr != nil {
-				require.ErrorIs(t, err, tt.wantErr)
+				require.ErrorContains(t, err, tt.wantErr.Error())
 			} else {
 				require.NoError(t, err)
+				require.Equal(t, tt.wantUpdatedItem, updatedItem)
 			}
-			require.Equal(t, tt.wantUpdatedItem, updatedItem)
 
 			collectionMock.AssertExpectations(t)
 			clientMock.AssertExpectations(t)
@@ -296,7 +297,7 @@ func TestDelete(t *testing.T) {
 			name:                     "Given_ValidID_When_Delete_And_ItemNotFound_Then_ExpectedNotFoundError",
 			givenID:                  testObjectID.Hex(),
 			givenMockDeleteOneResult: mockNotFoundDeleteOneResult(),
-			wantErr:                  repository.ErrNotFound,
+			wantErr:                  repository.NewItemNotFoundError(),
 		},
 		{
 			name:                    "Given_ValidID_When_Delete_And_DatabaseError_Then_ExpectedInternalError",
@@ -307,7 +308,7 @@ func TestDelete(t *testing.T) {
 		{
 			name:    "Given_InvalidID_When_Delete_Then_ExpectedInvalidIDError",
 			givenID: "invalid-id",
-			wantErr: repository.ErrInvalidHexID,
+			wantErr: repository.NewInvalidHexIDError(),
 		},
 	}
 
@@ -327,7 +328,7 @@ func TestDelete(t *testing.T) {
 			err := repo.Delete(ctx, tt.givenID)
 
 			if tt.wantErr != nil {
-				require.ErrorIs(t, err, tt.wantErr)
+				require.ErrorContains(t, err, tt.wantErr.Error())
 			} else {
 				require.NoError(t, err)
 			}

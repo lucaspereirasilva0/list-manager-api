@@ -2,5 +2,7 @@
 .DS_Store
 
 .cursor/rules
+.claude
+CLAUDE.md
 
 /memory-bank/

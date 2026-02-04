@@ -6,16 +6,20 @@ type parser struct{}
 
 func (p parser) toApiModel(item domain.Item) Item {
 	return Item{
-		ID:     item.ID,
-		Name:   item.Name,
-		Active: item.Active,
+		ID:        item.ID,
+		Name:      item.Name,
+		Active:    item.Active,
+		CreatedAt: item.CreatedAt,
+		UpdatedAt: item.UpdatedAt,
 	}
 }
 
 func (p parser) toDomainModel(item Item) domain.Item {
 	return domain.Item{
-		ID:     item.ID,
-		Name:   item.Name,
-		Active: item.Active,
+		ID:        item.ID,
+		Name:      item.Name,
+		Active:    item.Active,
+		CreatedAt: item.CreatedAt,
+		UpdatedAt: item.UpdatedAt,
 	}
 }

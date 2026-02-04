@@ -40,7 +40,7 @@ func TestErrorHandlingMiddleware(t *testing.T) {
 		{
 			name: "Given_ServiceError_When_HandlerReturnsServiceError_Then_APIErrorHandled",
 			givenHandlerFunc: func(w http.ResponseWriter, r *http.Request) error {
-				return service.NewErrorService(errors.New("item not found"), "item not found", http.StatusNotFound)
+				return service.NewErrorService(errors.New("item not found"), "item not found", service.ServiceSource, http.StatusNotFound)
 			},
 			wantStatus: http.StatusNotFound,
 			wantBody:   "item not found",
