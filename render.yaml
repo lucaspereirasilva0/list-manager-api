@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: list-manager-api
+    runtime: go
+    plan: free
+    autoDeploy: off
+    buildCommand: go build -o app ./cmd/api
+    startCommand: ./app
+    envVars:
+      - fromGroup: production-backend
