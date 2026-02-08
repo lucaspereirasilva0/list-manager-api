@@ -21,7 +21,7 @@ func NewItemService(repository repository.ItemRepository) ItemService {
 }
 
 func (s *itemService) CreateItem(ctx context.Context, item domain.Item) (domain.Item, error) {
-	repositoryItem := s.parser.toRepositoryModel(domain.NewItem(item.Name, item.Active))
+	repositoryItem := s.parser.toRepositoryModel(domain.NewItem(item.Name, item.Active, item.Observation))
 
 	createdRepositoryItem, err := s.repository.Create(ctx, repositoryItem)
 	if err != nil {

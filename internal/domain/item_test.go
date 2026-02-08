@@ -94,7 +94,7 @@ func TestNewItem(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			item := domain.NewItem(tt.givenName, tt.givenActive)
+			item := domain.NewItem(tt.givenName, tt.givenActive, nil)
 
 			// Verifica se o ID foi gerado (não vazio)
 			require.NotEmpty(t, item.ID, "Item ID should not be empty")
@@ -109,9 +109,9 @@ func TestNewItem(t *testing.T) {
 
 func TestNewItem_GeneratesUniqueIDs(t *testing.T) {
 	// Testa se IDs gerados são únicos
-	item1 := domain.NewItem("item 1", true)
-	item2 := domain.NewItem("item 2", true)
-	item3 := domain.NewItem("item 3", false)
+	item1 := domain.NewItem("item 1", true, nil)
+	item2 := domain.NewItem("item 2", true, nil)
+	item3 := domain.NewItem("item 3", false, nil)
 
 	require.NotEqual(t, item1.ID, item2.ID, "Generated IDs should be unique")
 	require.NotEqual(t, item1.ID, item3.ID, "Generated IDs should be unique")
@@ -123,13 +123,59 @@ func TestNewItem_GeneratesUniqueIDs(t *testing.T) {
 	require.Len(t, item3.ID, 24, "Item ID should be 24 characters")
 }
 
+func TestNewItem_WithObservation(t *testing.T) {
+	tests := []struct {
+		name             string
+		givenName        string
+		givenActive      bool
+		givenObservation *string
+		wantObservation  *string
+	}{
+		{
+			name:             "Given_NameActiveAndObservation_When_NewItem_Then_CreatesItemWithObservation",
+			givenName:        "test item",
+			givenActive:      true,
+			givenObservation: ptr("test observation"),
+			wantObservation:  ptr("test observation"),
+		},
+		{
+			name:             "Given_NameActiveAndEmptyObservation_When_NewItem_Then_CreatesItemWithEmptyObservation",
+			givenName:        "test item",
+			givenActive:      true,
+			givenObservation: ptr(""),
+			wantObservation:  ptr(""),
+		},
+		{
+			name:             "Given_NameActiveAndNilObservation_When_NewItem_Then_CreatesItemWithNilObservation",
+			givenName:        "test item",
+			givenActive:      true,
+			givenObservation: nil,
+			wantObservation:  nil,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			item := domain.NewItem(tt.givenName, tt.givenActive, tt.givenObservation)
+
+			require.NotEmpty(t, item.ID, "Item ID should not be empty")
+			require.Equal(t, tt.givenName, item.Name)
+			require.Equal(t, tt.givenActive, item.Active)
+			require.Equal(t, tt.wantObservation, item.Observation)
+		})
+	}
+}
+
+func ptr(s string) *string {
+	return &s
+}
+
 // Mock helper functions
 func mockActiveItem() domain.Item {
-	return domain.NewItem("any item", true)
+	return domain.NewItem("any item", true, nil)
 }
 
 func mockInactiveItem() domain.Item {
-	return domain.NewItem("any item", false)
+	return domain.NewItem("any item", false, nil)
 }
 
 func mockItemWithID() domain.Item {
