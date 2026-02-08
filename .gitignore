@@ -4,5 +4,7 @@
 .cursor/rules
 .claude
 CLAUDE.md
+AGENTS.md
+.opencode
 
 /memory-bank/

@@ -17,16 +17,18 @@ import (
 
 // Server encapsulates the HTTP server configuration
 type Server struct {
-	handler handlers.ItemHandler
-	logger  *zap.Logger
-	server  *http.Server
+	handler       handlers.ItemHandler
+	healthHandler handlers.HealthHandler
+	logger        *zap.Logger
+	server        *http.Server
 }
 
 // NewServer creates a new server instance
-func NewServer(handler handlers.ItemHandler, logger *zap.Logger, port int) *Server {
+func NewServer(handler handlers.ItemHandler, healthHandler handlers.HealthHandler, logger *zap.Logger, port int) *Server {
 	return &Server{
-		handler: handler,
-		logger:  logger,
+		handler:       handler,
+		healthHandler: healthHandler,
+		logger:        logger,
 		server: &http.Server{
 			Addr:         fmt.Sprintf(":%d", port),
 			ReadTimeout:  10 * time.Second,
@@ -38,6 +40,9 @@ func NewServer(handler handlers.ItemHandler, logger *zap.Logger, port int) *Serv
 // setupRoutes configures the server routes
 func (s *Server) setupRoutes() {
 	router := mux.NewRouter()
+
+	// Health check endpoint
+	router.Handle("/healthz", middleware.ErrorHandlingMiddleware(s.healthHandler.HealthCheck)).Methods("GET")
 
 	// Routes for item operations
 	router.Handle("/item", middleware.ErrorHandlingMiddleware(s.handler.CreateItem)).Methods("POST")

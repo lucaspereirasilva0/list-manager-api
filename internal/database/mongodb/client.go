@@ -67,3 +67,11 @@ func (cw *ClientWrapper) GetCollection(name string) MongoCollectionOperations {
 func (cw *ClientWrapper) Client() MongoClientOperations {
 	return &mongoClientWrapper{client: cw.mongoClient}
 }
+
+// Ping verifies the connection to MongoDB by sending a ping command.
+func (cw *ClientWrapper) Ping(ctx context.Context) error {
+	if cw.mongoClient == nil {
+		return fmt.Errorf("mongoClient is nil")
+	}
+	return cw.mongoClient.Ping(ctx, readpref.Primary())
+}

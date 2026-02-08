@@ -40,3 +40,8 @@ type ClientOperations interface {
 	Disconnect(ctx context.Context) error
 	Client() MongoClientOperations // expõe o client subjacente para controle de sessão/transaction
 }
+
+// PingClientOperations define as operações de ping para health check.
+type PingClientOperations interface {
+	Ping(ctx context.Context) error
+}

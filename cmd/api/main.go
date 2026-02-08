@@ -79,8 +79,11 @@ func main() {
 	//Create handler
 	handler := handlers.NewHandler(itemService)
 
+	//Create health handler
+	healthHandler := handlers.NewHealthHandler(mongoClient, logger)
+
 	//Create server
-	srv := server.NewServer(handler, logger, defaultPort)
+	srv := server.NewServer(handler, healthHandler, logger, defaultPort)
 	if err := srv.Start(); err != nil {
 		logger.Fatal("server error", zap.Error(err))
 	}
