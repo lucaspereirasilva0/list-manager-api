@@ -39,7 +39,7 @@ func TestCreateItem(t *testing.T) {
 			name:                "Given_Item_When_CreateItem_Then_ExpectedInternalError",
 			givenItem:           mockServiceItem(),
 			givenRepositoryItem: mockOutputRepositoryItem(),
-			wantErr:             mockInternalServerError(repository.NewRepositoryError(errDummy)),
+			wantErr:             mockInternalServerError(repository.NewGenericRepositoryError(errDummy)),
 		},
 	}
 	for _, tt := range tests {
@@ -50,7 +50,7 @@ func TestCreateItem(t *testing.T) {
 			mockRepo.On("Create", ctx, mock.MatchedBy(validateRepositoryItem(tt.givenRepositoryItem))).Return(tt.givenRepositoryItem, tt.wantErr)
 
 			service := service.NewItemService(mockRepo)
-			item, err := service.CreateItem(ctx, tt.givenItem.Name, tt.givenItem.Active)
+			item, err := service.CreateItem(ctx, tt.givenItem)
 
 			if tt.wantErr != nil {
 				require.ErrorContains(t, err, tt.wantErr.Error())
@@ -105,59 +105,52 @@ func TestGetItem(t *testing.T) {
 func TestUpdateItem(t *testing.T) {
 	type mockUpdate struct {
 		givenOutputItem repository.Item
-		givenErr        error
+		givenUpdateErr  error
 	}
 
 	type mockGetByID struct {
-		givenItem repository.Item
-		givenErr  error
-	}
-
-	type givenMockRepository struct {
-		mockUpdate
-		mockGetByID
+		givenItem       repository.Item
+		givenGetByIDErr error
 	}
 
 	tests := []struct {
 		name      string
 		givenItem domain.Item
-		givenMockRepository
+		mockUpdate
+		mockGetByID
 		wantServiceItem domain.Item
 		wantErr         error
 	}{
 		{
 			name:      "Given_ValidItem_When_UpdateItem_Then_ExpectedSuccess",
 			givenItem: domain.Item{ID: _dummyID, Name: "updated-name", Active: false},
-			givenMockRepository: givenMockRepository{
-				mockUpdate: mockUpdate{
-					givenOutputItem: mockOutputRepositoryItem(),
-				},
-				mockGetByID: mockGetByID{
-					givenItem: mockRepositoryItem(),
-				},
+			mockUpdate: mockUpdate{
+				givenOutputItem: mockOutputRepositoryItem(),
+			},
+			mockGetByID: mockGetByID{
+				givenItem: mockRepositoryItem(),
 			},
 			wantServiceItem: mockServiceItem(),
 		},
 		{
 			name:      "Given_ItemNotFound_When_UpdateItem_Then_ExpectedNotFoundError",
 			givenItem: domain.Item{ID: _dummyID, Name: "updated-name", Active: false},
-			givenMockRepository: givenMockRepository{
-				mockGetByID: mockGetByID{
-					givenErr: mockNotFoundRepositoryError(),
-				},
+			mockGetByID: mockGetByID{
+				givenGetByIDErr: mockNotFoundRepositoryError(),
 			},
 			wantErr: mockNotFoundRepositoryError(),
 		},
 		{
 			name:      "Given_InternalError_When_UpdateItem_Then_ExpectedInternalServerError",
 			givenItem: domain.Item{ID: _dummyID, Name: "updated-name", Active: false},
-			givenMockRepository: givenMockRepository{
-				mockUpdate: mockUpdate{
-					givenOutputItem: mockOutputRepositoryItem(),
-					givenErr:        repository.NewRepositoryError(errDummy),
-				},
+			mockGetByID: mockGetByID{
+				givenItem: mockRepositoryItem(),
 			},
-			wantErr: mockInternalServerError(repository.NewRepositoryError(errDummy)),
+			mockUpdate: mockUpdate{
+				givenOutputItem: mockOutputRepositoryItem(),
+				givenUpdateErr:  repository.NewGenericRepositoryError(errDummy),
+			},
+			wantErr: mockInternalServerError(repository.NewGenericRepositoryError(errDummy)),
 		},
 		{
 			name:      "Given_EmptyItem_When_UpdateItem_Then_ExpectedEmptyItemError",
@@ -172,12 +165,15 @@ func TestUpdateItem(t *testing.T) {
 
 			mockRepo := &repository.RepositoryMock{}
 			mockRepo.On("GetByID", ctx, mock.AnythingOfType("string")).
-				Return(tt.givenMockRepository.mockGetByID.givenItem, tt.givenMockRepository.mockGetByID.givenErr)
-			mockRepo.On("Update", ctx, mock.AnythingOfType("repository.Item")).
-				Return(tt.givenMockRepository.mockUpdate.givenOutputItem, tt.givenMockRepository.mockUpdate.givenErr)
+				Return(tt.mockGetByID.givenItem, tt.givenGetByIDErr)
 
-			service := service.NewItemService(mockRepo)
-			item, err := service.UpdateItem(ctx, tt.givenItem)
+			if tt.givenOutputItem.ID != "" || tt.givenUpdateErr != nil {
+				mockRepo.On("Update", ctx, mock.AnythingOfType("repository.Item")).
+					Return(tt.givenOutputItem, tt.givenUpdateErr)
+			}
+
+			itemService := service.NewItemService(mockRepo)
+			item, err := itemService.UpdateItem(ctx, tt.givenItem)
 
 			if tt.wantErr != nil {
 				require.ErrorContains(t, err, tt.wantErr.Error())
@@ -202,7 +198,7 @@ func TestDeleteItem(t *testing.T) {
 		{
 			name:    "Given_Item_When_DeleteItem_Then_ExpectedErrFailedDeleteItem",
 			givenID: _dummyID,
-			wantErr: mockInternalServerError(repository.NewRepositoryError(errDummy)),
+			wantErr: mockInternalServerError(repository.NewGenericRepositoryError(errDummy)),
 		},
 	}
 
@@ -246,7 +242,7 @@ func TestListItems(t *testing.T) {
 			name:                 "Given_Error_When_ListItems_Then_ExpectedInternalError",
 			givenRepositoryItems: []repository.Item{},
 			wantServiceItems:     []domain.Item{},
-			wantErr:              mockInternalServerError(repository.NewRepositoryError(errDummy)),
+			wantErr:              mockInternalServerError(repository.NewGenericRepositoryError(errDummy)),
 		},
 	}
 
@@ -296,8 +292,9 @@ func mockServiceItem() domain.Item {
 
 func mockNotFoundRepositoryError() error {
 	return service.NewErrorService(
-		repository.ErrItemNotFound,
+		repository.NewItemNotFoundError(),
 		"item not found",
+		service.RepositorySource,
 		http.StatusNotFound,
 	)
 }
@@ -306,6 +303,7 @@ func mockInternalServerError(err error) error {
 	return service.NewErrorService(
 		err,
 		"internal server error",
+		service.ServiceSource,
 		http.StatusInternalServerError,
 	)
 }

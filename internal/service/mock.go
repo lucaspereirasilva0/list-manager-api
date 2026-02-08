@@ -11,8 +11,8 @@ type ItemServiceMock struct {
 	mock.Mock
 }
 
-func (m *ItemServiceMock) CreateItem(ctx context.Context, name string, active bool) (domain.Item, error) {
-	args := m.Called(ctx, name, active)
+func (m *ItemServiceMock) CreateItem(ctx context.Context, item domain.Item) (domain.Item, error) {
+	args := m.Called(ctx, item)
 	return args.Get(0).(domain.Item), args.Error(1)
 }
 

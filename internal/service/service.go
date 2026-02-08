@@ -20,21 +20,21 @@ func NewItemService(repository repository.ItemRepository) ItemService {
 	}
 }
 
-func (s *itemService) CreateItem(ctx context.Context, name string, active bool) (domain.Item, error) {
-	item := s.parser.toRepositoryModel(domain.NewItem(name, active))
+func (s *itemService) CreateItem(ctx context.Context, item domain.Item) (domain.Item, error) {
+	repositoryItem := s.parser.toRepositoryModel(domain.NewItem(item.Name, item.Active))
 
-	item, err := s.repository.Create(ctx, item)
+	createdRepositoryItem, err := s.repository.Create(ctx, repositoryItem)
 	if err != nil {
 		log.Printf("failed to create item: %s: %w"+item.Name, err)
 		return domain.Item{}, handleError(err)
 	}
 
-	return s.parser.toDomainModel(item), nil
+	return s.parser.toDomainModel(createdRepositoryItem), nil
 }
 
 func (s *itemService) UpdateItem(ctx context.Context, item domain.Item) (domain.Item, error) {
 	if item.IsEmpty() {
-		return domain.Item{}, handleError(NewErrorEmptyItem())
+		return domain.Item{}, NewErrorEmptyItem()
 	}
 	_, err := s.repository.GetByID(ctx, item.ID)
 	if err != nil {
@@ -75,7 +75,7 @@ func (s *itemService) DeleteItem(ctx context.Context, id string) error {
 func (s *itemService) ListItems(ctx context.Context) ([]domain.Item, error) {
 	items, err := s.repository.List(ctx)
 	if err != nil {
-		log.Printf("failed to list items: %s", err)
+		log.Printf("failed to list items: %v", err)
 		return nil, handleError(err)
 	}
 
@@ -83,5 +83,6 @@ func (s *itemService) ListItems(ctx context.Context) ([]domain.Item, error) {
 	for i, item := range items {
 		domainItems[i] = s.parser.toDomainModel(item)
 	}
+
 	return domainItems, nil
 }

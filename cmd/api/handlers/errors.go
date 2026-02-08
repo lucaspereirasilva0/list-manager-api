@@ -2,14 +2,13 @@ package handlers
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 
 	"github.com/lucaspereirasilva0/list-manager-api/internal/service"
 )
 
 type ErrorAPI struct {
-	Cause   error  `json:"cause"`
+	Cause   string `json:"cause"`
 	Message string `json:"message"`
 	HTTP    int    `json:"http"`
 }
@@ -19,12 +18,15 @@ var (
 )
 
 func (e ErrorAPI) Error() string {
-	return fmt.Sprintf("ErrorAPI: %v, %v, %v", e.Cause, e.Message, e.HTTP)
+	if e.Cause == "" {
+		return e.Message
+	}
+	return e.Cause
 }
 
 func NewDecodeRequestError(err error) ErrorAPI {
 	return ErrorAPI{
-		Cause:   err,
+		Cause:   err.Error(),
 		Message: "failed to decode request",
 		HTTP:    http.StatusBadRequest,
 	}
@@ -32,13 +34,13 @@ func NewDecodeRequestError(err error) ErrorAPI {
 
 func NewInternalServerError(err error) ErrorAPI {
 	return ErrorAPI{
-		Cause:   err,
+		Cause:   err.Error(),
 		Message: "internal server error",
 		HTTP:    http.StatusInternalServerError,
 	}
 }
 
-func handleError(w http.ResponseWriter, err error) ErrorAPI {
+func HandleError(w http.ResponseWriter, err error) ErrorAPI {
 	var (
 		errService service.ErrorService
 		errAPI     ErrorAPI
@@ -49,7 +51,7 @@ func handleError(w http.ResponseWriter, err error) ErrorAPI {
 		return errAPI
 	case errors.As(err, &errService):
 		return ErrorAPI{
-			Cause:   errService.Cause,
+			Cause:   errService.Cause.Error(),
 			Message: errService.Message,
 			HTTP:    errService.HTTP,
 		}
