@@ -38,6 +38,13 @@ func TestCreateItem(t *testing.T) {
 			wantHTTPStatus:         http.StatusCreated,
 		},
 		{
+			name:                   "Given_ItemWithoutObservation_When_CreateItem_Then_ExpectedHTTPStatusCreated",
+			givenRequestBody:       mockItemWithoutObservation(),
+			givenMockedServiceItem: mockServiceItemWithoutObservation(),
+			wantAPIItem:            mockAPIItemWithoutObservation(),
+			wantHTTPStatus:         http.StatusCreated,
+		},
+		{
 			name:             "Given_InvalidJson_When_CreateItem_Then_ExpectedHTTPStatusBadRequest",
 			givenRequestBody: mockInvalidJson(),
 			wantHTTPStatus:   http.StatusBadRequest,
@@ -376,26 +383,59 @@ func TestListItems(t *testing.T) {
 }
 
 func mockItem() handlers.Item {
+	obs := "mock observation"
 	return handlers.Item{
-		ID:     "any-id",
-		Name:   "any name",
-		Active: true,
+		ID:          "any-id",
+		Name:        "any name",
+		Active:      true,
+		Observation: &obs,
 	}
 }
 
 func mockServiceItem() domain.Item {
+	obs := "mock observation"
 	return domain.Item{
-		ID:     "any-id",
-		Name:   "any name",
-		Active: true,
+		ID:          "any-id",
+		Name:        "any name",
+		Active:      true,
+		Observation: &obs,
 	}
 }
 
 func mockAPIItem() handlers.Item {
+	obs := "mock observation"
 	return handlers.Item{
-		ID:     "any-id",
-		Name:   "any name",
-		Active: true,
+		ID:          "any-id",
+		Name:        "any name",
+		Active:      true,
+		Observation: &obs,
+	}
+}
+
+func mockItemWithoutObservation() handlers.Item {
+	return handlers.Item{
+		ID:          "any-id",
+		Name:        "any name",
+		Active:      true,
+		Observation: nil,
+	}
+}
+
+func mockServiceItemWithoutObservation() domain.Item {
+	return domain.Item{
+		ID:          "any-id",
+		Name:        "any name",
+		Active:      true,
+		Observation: nil,
+	}
+}
+
+func mockAPIItemWithoutObservation() handlers.Item {
+	return handlers.Item{
+		ID:          "any-id",
+		Name:        "any name",
+		Active:      true,
+		Observation: nil,
 	}
 }
 

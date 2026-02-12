@@ -41,13 +41,17 @@ func (r *MongoDBItemRepository) Create(ctx context.Context, item repository.Item
 	}
 
 	// Use o ObjectID para a inserção no MongoDB
-	_, err = collection.InsertOne(ctx, bson.M{
+	doc := bson.M{
 		"_id":       objectID,
 		"name":      item.Name,
 		"active":    item.Active,
 		"createdAt": time.Now(),
 		"updatedAt": time.Now(),
-	})
+	}
+	if item.Observation != nil {
+		doc["observation"] = *item.Observation
+	}
+	_, err = collection.InsertOne(ctx, doc)
 	if err != nil {
 		return repository.Item{}, repository.HandleError(err)
 	}
@@ -65,11 +69,15 @@ func (r *MongoDBItemRepository) Update(ctx context.Context, item repository.Item
 	}
 
 	filter := bson.M{"_id": id}
-	update := bson.M{"$set": bson.M{
+	setFields := bson.M{
 		"name":      item.Name,
 		"active":    item.Active,
 		"updatedAt": time.Now(),
-	}}
+	}
+	if item.Observation != nil {
+		setFields["observation"] = *item.Observation
+	}
+	update := bson.M{"$set": setFields}
 
 	result, err := collection.UpdateOne(ctx, filter, update)
 	if err != nil {

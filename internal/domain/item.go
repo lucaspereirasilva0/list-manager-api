@@ -11,21 +11,23 @@ import (
 
 // Item represents the main domain entity
 type Item struct {
-	ID        string
-	Name      string
-	Active    bool
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID          string
+	Name        string
+	Active      bool
+	Observation *string
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
 }
 
 // NewItem creates a new instance of Item
-func NewItem(name string, active bool) Item {
+func NewItem(name string, active bool, observation *string) Item {
 	return Item{
-		ID:        generateID(),
-		Name:      name,
-		Active:    active,
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
+		ID:          generateID(),
+		Name:        name,
+		Active:      active,
+		Observation: observation,
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
 	}
 }
 
