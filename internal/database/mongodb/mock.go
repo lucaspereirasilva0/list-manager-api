@@ -61,6 +61,12 @@ func (m *MockMongoCollectionOperations) UpdateOne(ctx context.Context, filter in
 	return args.Get(0).(*mongo.UpdateResult), args.Error(1)
 }
 
+// UpdateMany implements MongoCollectionOperations.
+func (m *MockMongoCollectionOperations) UpdateMany(ctx context.Context, filter interface{}, update interface{}, opts ...*options.UpdateOptions) (*mongo.UpdateResult, error) {
+	args := m.Called(ctx, filter, update, opts)
+	return args.Get(0).(*mongo.UpdateResult), args.Error(1)
+}
+
 // DeleteOne implements MongoCollectionOperations.
 func (m *MockMongoCollectionOperations) DeleteOne(ctx context.Context, filter interface{}, opts ...*options.DeleteOptions) (*mongo.DeleteResult, error) {
 	args := m.Called(ctx, filter)

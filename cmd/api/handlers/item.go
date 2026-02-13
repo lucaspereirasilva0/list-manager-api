@@ -8,4 +8,5 @@ type ItemHandler interface {
 	UpdateItem(w http.ResponseWriter, r *http.Request) error
 	DeleteItem(w http.ResponseWriter, r *http.Request) error
 	ListItems(w http.ResponseWriter, r *http.Request) error
+	BulkUpdateActive(w http.ResponseWriter, r *http.Request) error
 }

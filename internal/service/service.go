@@ -25,7 +25,7 @@ func (s *itemService) CreateItem(ctx context.Context, item domain.Item) (domain.
 
 	createdRepositoryItem, err := s.repository.Create(ctx, repositoryItem)
 	if err != nil {
-		log.Printf("failed to create item: %s: %w"+item.Name, err)
+		log.Printf("failed to create item: %s: %v", item.Name, err)
 		return domain.Item{}, handleError(err)
 	}
 
@@ -38,7 +38,7 @@ func (s *itemService) UpdateItem(ctx context.Context, item domain.Item) (domain.
 	}
 	_, err := s.repository.GetByID(ctx, item.ID)
 	if err != nil {
-		log.Printf("failed to get item: %s: %w"+item.ID, err)
+		log.Printf("failed to get item: %s: %v", item.ID, err)
 		return domain.Item{}, handleError(err)
 	}
 
@@ -46,7 +46,7 @@ func (s *itemService) UpdateItem(ctx context.Context, item domain.Item) (domain.
 
 	updatedItem, err := s.repository.Update(ctx, repositoryItem)
 	if err != nil {
-		log.Printf("failed to update item: %s: %w"+item.ID, err)
+		log.Printf("failed to update item: %s: %v", item.ID, err)
 		return domain.Item{}, handleError(err)
 	}
 
@@ -56,7 +56,7 @@ func (s *itemService) UpdateItem(ctx context.Context, item domain.Item) (domain.
 func (s *itemService) GetItem(ctx context.Context, id string) (domain.Item, error) {
 	item, err := s.repository.GetByID(ctx, id)
 	if err != nil {
-		log.Printf("failed to get item: %s: %w"+id, err)
+		log.Printf("failed to get item: %s: %v", id, err)
 		return domain.Item{}, handleError(err)
 	}
 
@@ -66,7 +66,7 @@ func (s *itemService) GetItem(ctx context.Context, id string) (domain.Item, erro
 func (s *itemService) DeleteItem(ctx context.Context, id string) error {
 	err := s.repository.Delete(ctx, id)
 	if err != nil {
-		log.Printf("failed to delete item: %s: %w"+id, err)
+		log.Printf("failed to delete item: %s: %v", id, err)
 		return handleError(err)
 	}
 	return nil
@@ -85,4 +85,14 @@ func (s *itemService) ListItems(ctx context.Context) ([]domain.Item, error) {
 	}
 
 	return domainItems, nil
+}
+
+func (s *itemService) BulkUpdateActive(ctx context.Context, active bool) (int64, int64, error) {
+	matchedCount, modifiedCount, err := s.repository.BulkUpdateActive(ctx, active)
+	if err != nil {
+		log.Printf("failed to bulk update active: %v", err)
+		return 0, 0, handleError(err)
+	}
+
+	return matchedCount, modifiedCount, nil
 }

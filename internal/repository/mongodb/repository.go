@@ -159,6 +159,24 @@ func (r *MongoDBItemRepository) List(ctx context.Context) ([]repository.Item, er
 	return items, nil
 }
 
+// BulkUpdateActive updates the active field for all items in the MongoDB repository
+func (r *MongoDBItemRepository) BulkUpdateActive(ctx context.Context, active bool) (int64, int64, error) {
+	collection := r.client.GetCollection(CollectionItems)
+
+	filter := bson.M{}
+	update := bson.M{"$set": bson.M{
+		"active":    active,
+		"updatedAt": time.Now(),
+	}}
+
+	result, err := collection.UpdateMany(ctx, filter, update)
+	if err != nil {
+		return 0, 0, repository.HandleError(err)
+	}
+
+	return result.MatchedCount, result.ModifiedCount, nil
+}
+
 //TODO adicionar quando implementar autenticacao de usuario
 // // CreateItemWithUser inserts a new item and an associated user in a single transaction
 // func (r *MongoDBItemRepository) CreateItemWithUser(ctx context.Context, item repository.Item, user repository.User) (repository.Item, repository.User, error) {

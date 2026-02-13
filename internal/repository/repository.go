@@ -20,4 +20,7 @@ type ItemRepository interface {
 
 	// List retrieves all items from the repository
 	List(ctx context.Context) ([]Item, error)
+
+	// BulkUpdateActive updates the active field for all items in the repository
+	BulkUpdateActive(ctx context.Context, active bool) (matchedCount int64, modifiedCount int64, err error)
 }
