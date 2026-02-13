@@ -266,6 +266,72 @@ func TestListItems(t *testing.T) {
 	}
 }
 
+func TestBulkUpdateActive(t *testing.T) {
+	tests := []struct {
+		name               string
+		givenActive        bool
+		givenMatchedCount  int64
+		givenModifiedCount int64
+		givenRepositoryErr error
+		wantMatchedCount   int64
+		wantModifiedCount  int64
+		wantErr            error
+	}{
+		{
+			name:               "Given_TrueActive_When_BulkUpdateActive_Then_ReturnsSuccess",
+			givenActive:        true,
+			givenMatchedCount:  5,
+			givenModifiedCount: 5,
+			wantMatchedCount:   5,
+			wantModifiedCount:  5,
+		},
+		{
+			name:               "Given_FalseActive_When_BulkUpdateActive_Then_ReturnsSuccess",
+			givenActive:        false,
+			givenMatchedCount:  3,
+			givenModifiedCount: 3,
+			wantMatchedCount:   3,
+			wantModifiedCount:  3,
+		},
+		{
+			name:               "Given_EmptyCollection_When_BulkUpdateActive_Then_ReturnsZeroCounts",
+			givenActive:        true,
+			givenMatchedCount:  0,
+			givenModifiedCount: 0,
+			wantMatchedCount:   0,
+			wantModifiedCount:  0,
+		},
+		{
+			name:               "Given_DatabaseError_When_BulkUpdateActive_Then_ReturnsError",
+			givenActive:        true,
+			givenMatchedCount:  0,
+			givenModifiedCount: 0,
+			givenRepositoryErr: mockInternalServerError(repository.NewGenericRepositoryError(errDummy)),
+			wantErr:            mockInternalServerError(repository.NewGenericRepositoryError(errDummy)),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
+
+			mockRepo := &repository.RepositoryMock{}
+			mockRepo.On("BulkUpdateActive", ctx, tt.givenActive).Return(tt.givenMatchedCount, tt.givenModifiedCount, tt.givenRepositoryErr)
+
+			svc := service.NewItemService(mockRepo)
+			matchedCount, modifiedCount, err := svc.BulkUpdateActive(ctx, tt.givenActive)
+
+			if tt.wantErr != nil {
+				require.ErrorContains(t, err, tt.wantErr.Error())
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, tt.wantMatchedCount, matchedCount)
+				require.Equal(t, tt.wantModifiedCount, modifiedCount)
+			}
+		})
+	}
+}
+
 func mockOutputRepositoryItem() repository.Item {
 	return repository.Item{
 		ID:     _dummyID,

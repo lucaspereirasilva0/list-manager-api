@@ -118,6 +118,30 @@ func (h *handler) ListItems(w http.ResponseWriter, r *http.Request) error {
 	return writeJSONResponse(w, http.StatusOK, apiItems)
 }
 
+// BulkUpdateActive handles the bulk update of the active field for all items
+func (h *handler) BulkUpdateActive(w http.ResponseWriter, r *http.Request) error {
+	var req BulkActiveRequest
+
+	ctx := r.Context()
+
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		return NewDecodeRequestError(err)
+	}
+
+	matchedCount, modifiedCount, err := h.service.BulkUpdateActive(ctx, req.Active)
+	if err != nil {
+		return err
+	}
+
+	response := BulkActiveResponse{
+		MatchedCount:  matchedCount,
+		ModifiedCount: modifiedCount,
+	}
+
+	return writeJSONResponse(w, http.StatusOK, response)
+}
+
 // writeJSONResponse escreve uma resposta HTTP com o status code e corpo JSON.
 func writeJSONResponse(w http.ResponseWriter, statusCode int, data any) error {
 	rawData, err := json.Marshal(data)

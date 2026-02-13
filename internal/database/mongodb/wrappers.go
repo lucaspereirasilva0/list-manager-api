@@ -25,6 +25,10 @@ func (mcw *mongoCollectionWrapper) UpdateOne(ctx context.Context, filter interfa
 	return mcw.collection.UpdateOne(ctx, filter, update, opts...)
 }
 
+func (mcw *mongoCollectionWrapper) UpdateMany(ctx context.Context, filter interface{}, update interface{}, opts ...*options.UpdateOptions) (*mongo.UpdateResult, error) {
+	return mcw.collection.UpdateMany(ctx, filter, update, opts...)
+}
+
 func (mcw *mongoCollectionWrapper) DeleteOne(ctx context.Context, filter interface{}, opts ...*options.DeleteOptions) (*mongo.DeleteResult, error) {
 	return mcw.collection.DeleteOne(ctx, filter, opts...)
 }

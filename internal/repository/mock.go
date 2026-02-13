@@ -34,3 +34,8 @@ func (m *RepositoryMock) List(ctx context.Context) ([]Item, error) {
 	args := m.Called(ctx)
 	return args.Get(0).([]Item), args.Error(1)
 }
+
+func (m *RepositoryMock) BulkUpdateActive(ctx context.Context, active bool) (int64, int64, error) {
+	args := m.Called(ctx, active)
+	return args.Get(0).(int64), args.Get(1).(int64), args.Error(2)
+}

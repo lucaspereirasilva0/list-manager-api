@@ -12,4 +12,5 @@ type ItemService interface {
 	UpdateItem(ctx context.Context, item domain.Item) (domain.Item, error)
 	DeleteItem(ctx context.Context, id string) error
 	ListItems(ctx context.Context) ([]domain.Item, error)
+	BulkUpdateActive(ctx context.Context, active bool) (matchedCount int64, modifiedCount int64, err error)
 }

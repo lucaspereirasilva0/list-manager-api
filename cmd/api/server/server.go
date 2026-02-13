@@ -50,6 +50,7 @@ func (s *Server) setupRoutes() {
 	router.Handle("/item", middleware.ErrorHandlingMiddleware(s.handler.UpdateItem)).Methods("PUT")
 	router.Handle("/item", middleware.ErrorHandlingMiddleware(s.handler.DeleteItem)).Methods("DELETE")
 	router.Handle("/items", middleware.ErrorHandlingMiddleware(s.handler.ListItems)).Methods("GET")
+	router.Handle("/items/active", middleware.ErrorHandlingMiddleware(s.handler.BulkUpdateActive)).Methods("PUT")
 
 	// Route for application version (for PWA auto-update)
 	router.HandleFunc("/_app/version.json", handlers.GetVersion).Methods("GET")

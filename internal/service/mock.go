@@ -35,3 +35,8 @@ func (m *ItemServiceMock) ListItems(ctx context.Context) ([]domain.Item, error) 
 	args := m.Called(ctx)
 	return args.Get(0).([]domain.Item), args.Error(1)
 }
+
+func (m *ItemServiceMock) BulkUpdateActive(ctx context.Context, active bool) (int64, int64, error) {
+	args := m.Called(ctx, active)
+	return args.Get(0).(int64), args.Get(1).(int64), args.Error(2)
+}

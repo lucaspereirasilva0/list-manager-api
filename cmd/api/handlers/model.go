@@ -32,6 +32,15 @@ const (
 	HealthStatusDown     HealthStatus = "down"
 )
 
+type BulkActiveRequest struct {
+	Active bool `json:"active"`
+}
+
+type BulkActiveResponse struct {
+	MatchedCount  int64 `json:"matchedCount"`
+	ModifiedCount int64 `json:"modifiedCount"`
+}
+
 type ComponentStatus string
 
 const (

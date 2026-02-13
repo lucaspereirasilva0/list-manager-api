@@ -75,6 +75,18 @@ func mockNotFoundDeleteOneResult() *mongo.DeleteResult {
 	return &mongo.DeleteResult{DeletedCount: 0}
 }
 
+func mockSuccessfulUpdateManyResult() *mongo.UpdateResult {
+	return &mongo.UpdateResult{MatchedCount: 5, ModifiedCount: 5}
+}
+
+func mockEmptyUpdateManyResult() *mongo.UpdateResult {
+	return &mongo.UpdateResult{MatchedCount: 0, ModifiedCount: 0}
+}
+
+func mockPartialUpdateManyResult() *mongo.UpdateResult {
+	return &mongo.UpdateResult{MatchedCount: 5, ModifiedCount: 3}
+}
+
 func mockSuccessfulFindOneResult() *mongo.SingleResult {
 	item := mockFoundItemOutput()
 	bsonBytes, _ := bson.Marshal(item)
@@ -331,6 +343,83 @@ func TestDelete(t *testing.T) {
 				require.ErrorContains(t, err, tt.wantErr.Error())
 			} else {
 				require.NoError(t, err)
+			}
+
+			collectionMock.AssertExpectations(t)
+			clientMock.AssertExpectations(t)
+		})
+	}
+}
+
+func TestBulkUpdateActive(t *testing.T) {
+	ctx := context.Background()
+
+	tests := []struct {
+		name                      string
+		givenActive               bool
+		givenMockUpdateManyResult *mongo.UpdateResult
+		givenMockUpdateManyError  error
+		wantErr                   error
+		wantMatchedCount          int64
+		wantModifiedCount         int64
+	}{
+		{
+			name:                      "Given_TrueActive_When_BulkUpdateActive_Then_ReturnsSuccess",
+			givenActive:               true,
+			givenMockUpdateManyResult: mockSuccessfulUpdateManyResult(),
+			wantMatchedCount:          5,
+			wantModifiedCount:         5,
+		},
+		{
+			name:                      "Given_FalseActive_When_BulkUpdateActive_Then_ReturnsSuccess",
+			givenActive:               false,
+			givenMockUpdateManyResult: mockSuccessfulUpdateManyResult(),
+			wantMatchedCount:          5,
+			wantModifiedCount:         5,
+		},
+		{
+			name:                      "Given_EmptyCollection_When_BulkUpdateActive_Then_ReturnsZeroCounts",
+			givenActive:               true,
+			givenMockUpdateManyResult: mockEmptyUpdateManyResult(),
+			wantMatchedCount:          0,
+			wantModifiedCount:         0,
+		},
+		{
+			name:                      "Given_PartialUpdate_When_BulkUpdateActive_Then_ReturnsPartialCounts",
+			givenActive:               true,
+			givenMockUpdateManyResult: mockPartialUpdateManyResult(),
+			wantMatchedCount:          5,
+			wantModifiedCount:         3,
+		},
+		{
+			name:                     "Given_DatabaseError_When_BulkUpdateActive_Then_ReturnsError",
+			givenActive:              true,
+			givenMockUpdateManyError: errDatabase,
+			wantErr:                  errDatabase,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			collectionMock := new(dbmongo.MockMongoCollectionOperations)
+			clientMock := new(dbmongo.MockClientOperations)
+
+			if tt.givenMockUpdateManyResult != nil || tt.givenMockUpdateManyError != nil {
+				collectionMock.On("UpdateMany", ctx, mock.Anything, mock.Anything, mock.Anything).Return(tt.givenMockUpdateManyResult, tt.givenMockUpdateManyError)
+			}
+
+			clientMock.On("GetCollection", mongorepo.CollectionItems).Return(collectionMock)
+
+			repo := mongorepo.NewMongoDBItemRepository(clientMock)
+
+			matchedCount, modifiedCount, err := repo.BulkUpdateActive(ctx, tt.givenActive)
+
+			if tt.wantErr != nil {
+				require.ErrorContains(t, err, tt.wantErr.Error())
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, tt.wantMatchedCount, matchedCount)
+				require.Equal(t, tt.wantModifiedCount, modifiedCount)
 			}
 
 			collectionMock.AssertExpectations(t)
