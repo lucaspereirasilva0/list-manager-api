@@ -131,3 +131,127 @@ In `cmd/api/server/server.go`, middlewares are applied in the following order to
 3. **Router (`mux.NewRouter()`)**: The router is applied last, ensuring that requests are logged and CORS is handled before routing is performed.
 
 ---
+
+## 11. API Endpoints
+
+The application exposes the following endpoints:
+
+### Health & Application
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/healthz` | Health check with MongoDB connectivity verification |
+| GET | `/_app/version.json` | Application version for PWA auto-update |
+
+### Items Management
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/item` | Create a new item with name, active status, and optional observation |
+| GET | `/item?id={id}` | Get a specific item by ID |
+| PUT | `/item?id={id}` | Update an existing item by ID |
+| DELETE | `/item?id={id}` | Delete an item by ID |
+| GET | `/items` | List all items |
+| PUT | `/items/active` | Bulk update active status for all items |
+
+### Endpoint Details
+
+**Create Item (`POST /item`):**
+- Request body: `{ "name": "string", "active": boolean, "observation": "string?" }`
+- Response: Item with generated ID and timestamps (201 Created)
+- Validation: Name cannot be empty
+
+**Get Item (`GET /item?id={id}`):**
+- Query parameter: `id` (required)
+- Response: Item data (200 OK) or 404 Not Found
+
+**Update Item (`PUT /item?id={id}`):**
+- Query parameter: `id` (required)
+- Request body: `{ "name": "string", "active": boolean, "observation": "string?" }`
+- Response: Updated item (200 OK) or 404 Not Found
+
+**Delete Item (`DELETE /item?id={id}`):**
+- Query parameter: `id` (required)
+- Response: 204 No Content on success, 404 Not Found
+
+**List Items (`GET /items`):**
+- No parameters required
+- Response: Array of all items (200 OK)
+
+**Bulk Update Active (`PUT /items/active`):**
+- Request body: `{ "active": boolean }`
+- Response: `{ "matchedCount": number, "modifiedCount": number }` (200 OK)
+
+**Health Check (`GET /healthz`):**
+- No parameters required
+- Response: Health status with server, database, and checks (200 OK)
+- Verifies MongoDB connectivity before returning "up" status
+
+---
+
+## 12. Data Models
+
+### Item Entity
+
+```go
+type Item struct {
+    ID          string     // Unique identifier (hex-encoded random bytes)
+    Name        string     // Item name (required, non-empty)
+    Active      bool       // Active status flag
+    Observation *string    // Optional observation/notes (nullable)
+    CreatedAt   time.Time  // Creation timestamp
+    UpdatedAt   time.Time  // Last update timestamp
+}
+```
+
+### Health Check Response
+
+```go
+type HealthCheckResponse struct {
+    Status    HealthStatus           // Overall status: up/degraded/down
+    Server    ComponentStatus       // Server status: up/down
+    Database  ComponentStatus       // Database connection status: connected/disconnected
+    Timestamp string               // ISO 8601 timestamp
+    Checks    map[string]Check     // Additional component checks
+}
+```
+
+### Bulk Update Response
+
+```go
+type BulkActiveResponse struct {
+    MatchedCount  int64  // Number of documents matched
+    ModifiedCount int64  // Number of documents actually modified
+}
+```
+
+---
+
+## 13. Error Handling Strategy
+
+The application implements comprehensive error handling across all layers:
+
+### Handler Layer
+- HTTP error responses with appropriate status codes
+- Error middleware wraps all handlers for panic recovery
+- JSON error responses: `{ "message": "error description" }`
+
+### Service Layer
+- Business logic validation errors
+- Repository error wrapping with context
+- Domain-specific error types
+
+### Repository Layer
+- Database operation errors
+- Connection failure handling
+- Query result errors (not found, etc.)
+
+### HTTP Status Code Mapping
+
+| Error Type | Status Code | Example |
+|------------|-------------|----------|
+| Validation Error | 400 Bad Request | Empty item name |
+| Not Found | 404 Not Found | Item ID does not exist |
+| Internal Error | 500 Internal Server Error | Database connection failure |
+
+---

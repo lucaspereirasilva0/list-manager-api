@@ -1,0 +1,437 @@
+openapi: 3.0.3
+info:
+  title: List Manager API
+  description: |
+    RESTful API for managing lists of items (products/users) with bulk operations support.
+
+    **Features:**
+    - CRUD operations for items
+    - Bulk active status updates
+    - Health checks with MongoDB verification
+    - PWA version endpoint
+
+    **Architecture:** Clean Architecture (Handlers → Services → Repositories → Domain)
+  version: 1.0.0
+  contact:
+    name: List Manager API Support
+    url: https://github.com/lucaspereirasilva0/list-manager-api
+
+servers:
+  - url: http://localhost:8085
+    description: Local development server
+  - url: https://list-manager-api.onrender.com
+    description: Production environment (Render)
+
+tags:
+  - name: Items
+    description: Item management operations
+  - name: Health
+    description: Health check and monitoring
+  - name: Application
+    description: Application-level endpoints
+
+paths:
+  /healthz:
+    get:
+      tags: [Health]
+      summary: Health check
+      description: Verifies the health of the API and its dependencies (MongoDB)
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthCheckResponse'
+        '503':
+          description: Service is unhealthy or database connection failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /item:
+    post:
+      tags: [Items]
+      summary: Create item
+      description: Creates a new item with the provided data
+      operationId: createItem
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ItemCreate'
+      responses:
+        '201':
+          description: Item created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Item'
+        '400':
+          description: Invalid request data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    get:
+      tags: [Items]
+      summary: Get item by ID
+      description: Retrieves a specific item by its ID
+      operationId: getItem
+      parameters:
+        - name: id
+          in: query
+          required: true
+          description: The ID of the item to retrieve
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Item found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Item'
+        '400':
+          description: Missing or invalid ID parameter
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Item not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      tags: [Items]
+      summary: Update item
+      description: Updates an existing item by its ID
+      operationId: updateItem
+      parameters:
+        - name: id
+          in: query
+          required: true
+          description: The ID of the item to update
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ItemUpdate'
+      responses:
+        '200':
+          description: Item updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Item'
+        '400':
+          description: Invalid request data or missing ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Item not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags: [Items]
+      summary: Delete item
+      description: Deletes an item by its ID
+      operationId: deleteItem
+      parameters:
+        - name: id
+          in: query
+          required: true
+          description: The ID of the item to delete
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Item deleted successfully (no content)
+        '400':
+          description: Missing or invalid ID parameter
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Item not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /items:
+    get:
+      tags: [Items]
+      summary: List all items
+      description: Retrieves all items in the system
+      operationId: listItems
+      responses:
+        '200':
+          description: List of items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Item'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /items/active:
+    put:
+      tags: [Items]
+      summary: Bulk update active status
+      description: Updates the active field for all items in a single operation
+      operationId: bulkUpdateActive
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BulkActiveRequest'
+      responses:
+        '200':
+          description: Items updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BulkActiveResponse'
+        '400':
+          description: Invalid request data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /_app/version.json:
+    get:
+      tags: [Application]
+      summary: Get application version
+      description: Returns the current version of the application (for PWA auto-update)
+      operationId: getVersion
+      responses:
+        '200':
+          description: Version information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  version:
+                    type: string
+                    example: "1.0.0"
+
+components:
+  schemas:
+    Item:
+      type: object
+      required:
+        - id
+        - name
+        - active
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the item (hex-encoded random bytes)
+          example: "a1b2c3d4e5f6g7h8i9j0k1l2"
+        name:
+          type: string
+          description: Name of the item
+          example: "Product A"
+        active:
+          type: boolean
+          description: Whether the item is currently active
+          example: true
+        observation:
+          type: string
+          nullable: true
+          description: Optional observation or notes about the item
+          example: "Premium product with special pricing"
+        createdAt:
+          type: string
+          format: date-time
+          description: Timestamp when the item was created
+          example: "2026-02-13T10:30:00Z"
+        updatedAt:
+          type: string
+          format: date-time
+          description: Timestamp when the item was last updated
+          example: "2026-02-13T11:45:00Z"
+
+    ItemCreate:
+      type: object
+      required:
+        - name
+        - active
+      properties:
+        name:
+          type: string
+          description: Name of the item to create
+          example: "New Product"
+        active:
+          type: boolean
+          description: Initial active status
+          example: true
+        observation:
+          type: string
+          nullable: true
+          description: Optional observation
+          example: "Initial observation"
+
+    ItemUpdate:
+      type: object
+      required:
+        - name
+        - active
+      properties:
+        name:
+          type: string
+          description: Updated name of the item
+          example: "Updated Product"
+        active:
+          type: boolean
+          description: Updated active status
+          example: false
+        observation:
+          type: string
+          nullable: true
+          description: Updated observation
+          example: "Updated observation"
+
+    BulkActiveRequest:
+      type: object
+      required:
+        - active
+      properties:
+        active:
+          type: boolean
+          description: The active status to apply to all items
+          example: true
+
+    BulkActiveResponse:
+      type: object
+      required:
+        - matchedCount
+        - modifiedCount
+      properties:
+        matchedCount:
+          type: integer
+          format: int64
+          description: Number of documents that matched the filter
+          example: 150
+        modifiedCount:
+          type: integer
+          format: int64
+          description: Number of documents that were actually modified
+          example: 42
+
+    HealthCheckResponse:
+      type: object
+      required:
+        - status
+        - server
+        - database
+        - timestamp
+        - checks
+      properties:
+        status:
+          type: string
+          enum: [up, degraded, down]
+          description: Overall health status
+        server:
+          type: string
+          enum: [up, down]
+          description: Server component status
+        database:
+          type: string
+          enum: [connected, disconnected]
+          description: Database connection status
+        timestamp:
+          type: string
+          format: date-time
+          description: When the health check was performed
+        checks:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/Check'
+          description: Additional component checks
+
+    Check:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum: [up, down, connected, disconnected, passed, failed]
+          description: Status of this specific check
+        error:
+          type: string
+          description: Error message if the check failed
+          example: "Connection timeout"
+
+    ErrorResponse:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+          description: Human-readable error message
+          example: "Item not found"
+
+  securitySchemes:
+    # Placeholder for future authentication (e.g., JWT)
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
